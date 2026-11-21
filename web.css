@@ -215,3 +215,8 @@ html, body {
 #tc-options.hidden,#tc-input-card.hidden,#tc-result.hidden{display:none!important}
 
 #tc-resGrid .cmp-info-item b{white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word}
+
+/* ===== Latar overlay progres Kuro Transcode: assets/overlay-bg.mp4 ===== */
+.kuro-upload-overlay .tc-ov-bg{display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;pointer-events:none;opacity:.72;filter:brightness(.9) saturate(1.1)}
+.kuro-upload-overlay.tc-bgmode .tc-ov-bg{display:block}
+.kuro-upload-overlay.tc-bgmode::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at center,rgba(2,6,4,.05) 0%,rgba(2,6,4,.42) 70%,rgba(2,6,4,.72) 100%)}

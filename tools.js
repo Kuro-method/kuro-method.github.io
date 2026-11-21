@@ -68,6 +68,13 @@
     show: function (file, url) {
       var ov = $('upload-overlay'); if (!ov) return;
       ov.classList.remove('hidden');
+      /* latar: assets/overlay-bg.mp4 (hanya untuk Kuro Transcode) */
+      var bg = $('tc-ov-bg');
+      if (bg) {
+        if (!bg.getAttribute('src')) bg.setAttribute('src', 'assets/overlay-bg.mp4');
+        ov.classList.add('tc-bgmode');
+        try { var bp = bg.play(); if (bp && bp.catch) bp.catch(function () {}); } catch (e) {}
+      }
       var v = $('upload-overlay-video');
       if (v && url) { v.src = url; v.loop = true; v.muted = true; try { v.play().catch(function () {}); } catch (e) {} }
       if ($('upload-overlay-file')) $('upload-overlay-file').textContent = file.name + ' · ' + fmtSize(file.size);
@@ -84,7 +91,8 @@
       if (cb) { cb.disabled = false; cb.classList.remove('hidden'); var sp = cb.querySelector('span'); if (sp) { OV.cancelTxt = sp.textContent; sp.textContent = L('Batalkan proses', 'Cancel'); } }
     },
     hide: function () {
-      var ov = $('upload-overlay'); if (ov) ov.classList.add('hidden');
+      var ov = $('upload-overlay'); if (ov) { ov.classList.add('hidden'); ov.classList.remove('tc-bgmode'); }
+      var bg = $('tc-ov-bg'); if (bg) { try { bg.pause(); } catch (e) {} }
       var v = $('upload-overlay-video'); if (v) { try { v.pause(); } catch (e) {} }
       for (var i = 1; i <= 3; i++) {
         var lab = $('upload-step-' + i) && $('upload-step-' + i).children[1];
