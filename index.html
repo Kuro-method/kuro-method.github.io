@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuro Method — Encoder & Analyzer</title>
+<link rel="icon" href="icons/icon32.png">
+<link rel="stylesheet" href="style.css?v=15">
+<link rel="stylesheet" href="style-v15.css?v=152">
+<link rel="stylesheet" href="web.css?v=1">
+<script src="coi-serviceworker.js" data-coi-register></script>
+</head>
+<body>
+<div class="lang-switch"><button type="button" class="lang-btn" data-lang="id">ID</button><button type="button" class="lang-btn" data-lang="en">EN</button></div>
+<div class="app-container">
+  <div class="banner-wrapper"><img src="assets/banner.jpg" alt="KURO METHOD BANNER" class="main-banner"></div>
+
+  <!-- INFORMASI KURO ENCODER (auto-close 5s) -->
+  <div class="kuro-notice-card" id="kuroNoticeCard">
+    <img class="kuro-notice-img" src="assets/sinon-notice.jpg" alt="Sinon Notice" onerror="this.src='icons/kuroicon.jpg'">
+    <div class="kuro-notice-body">
+      <div class="kuro-notice-title">
+        <span>📌 INFORMASI KURO ENCODER</span>
+        <span class="kuro-notice-timer" id="kuroNoticeTimer">Auto Close: 5s</span>
+      </div>
+      <div class="kuro-notice-desc">
+        Web app ini berjalan offline via <b>WebAssembly (WASM)</b> di browser.
+        Fitur: <b>Kompres Video</b>, <b>Kuro Transcode</b> (HQ Upscale, 2x FPS, Patcher, FastStart, All-In-One),
+        dan <b>TikTok Analyzer V1/V2</b>. Tanpa upload ke server.
+      </div>
+      <div class="kuro-notice-social">
+        <a href="https://www.tiktok.com/@malzzxsinon24" target="_blank" rel="noopener" class="kuro-soc kuro-soc-tt">🎵 TikTok</a>
+        <a href="https://wa.me/6285163167911" target="_blank" rel="noopener" class="kuro-soc kuro-soc-wa">💬 WhatsApp</a>
+        <a href="https://www.facebook.com/ikmal.almajaji" target="_blank" rel="noopener" class="kuro-soc kuro-soc-fb">🌐 Facebook</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-content">
+            <!-- TOP TABS -->
+            <div class="kuro-top-tabs" style="display:flex; gap:8px; margin-bottom:14px;">
+              <button type="button" class="kuro-top-tab active" data-tab="encoder" id="top-tab-encoder"
+                style="flex:1; padding:11px 8px; border-radius:10px; border:2px solid #00f2fe; background:rgba(0,242,254,0.15); color:#00f2fe; font-weight:800; cursor:pointer; font-size:0.88rem;">
+                ⚡ Kuro Encoder
+              </button>
+              <button type="button" class="kuro-top-tab" data-tab="analyzer" id="top-tab-analyzer"
+                style="flex:1; padding:11px 8px; border-radius:10px; border:2px solid #00ffaa; background:rgba(0,255,170,0.08); color:#7dffe0; font-weight:800; cursor:pointer; font-size:0.88rem;">
+                🔍 Analyzer
+              </button>
+            </div>
+
+            <div id="tab-encoder" class="tab-content active">
+
+                <div class="developer-badge">
+                    ⚡ Kuro Encoder <span class="version-pill">V1.5.4</span>
+                </div>
+
+                <!-- MODE SWITCHER -->
+                <div class="encoder-mode-switch" style="display:flex; gap:10px; margin-bottom:14px;">
+                    <button type="button" id="btn-mode-kompres" class="encoder-mode-btn active"
+                        style="flex:1; padding:12px 10px; border-radius:10px; border:2px solid #00f2fe; background:rgba(0,242,254,0.15); color:#00f2fe; font-weight:700; cursor:pointer; font-size:0.9rem;">
+                        🎬 Kompres Video
+                    </button>
+                    <button type="button" id="btn-mode-transcode" class="encoder-mode-btn"
+                        style="flex:1; padding:12px 10px; border-radius:10px; border:2px solid #a78bfa; background:rgba(167,139,250,0.08); color:#c4b5fd; font-weight:700; cursor:pointer; font-size:0.9rem;">
+                        🔧 Kuro Transcode
+                    </button>
+                </div>
+
+                <!-- ========== MODE 1: KOMPRES (advanced) ========== -->
+                <div id="mode-kompres">
+                <div class="card card-neon" style="border-left: 4px solid #00f2fe; margin-bottom: 14px;">
+                    <div class="toggle-info">
+                        <h4 data-i18n="cx_004" style="color:#00f2fe;">🎬 KOMPRES VIDEO DI BROWSER</h4>
+                        <p data-i18n-html="cx_005" style="font-size:0.8rem; color:#e2e8f0; margin-top:5px; line-height:1.55;">
+                            Pilih video, lalu halaman pengaturan kompres akan terbuka.
+                            Semua opsi <b>videokompres2.3.sh</b> tersedia: codec, level, CRF/bitrate, aspect ratio,
+                            resolusi, FPS, GOP/keyframe, preset, audio, sample rate, metadata, faststart, dan container.
+                            Sebelum kompres kamu melihat <b>info video asli</b> + <b>ringkasan pilihan</b>, dan hasilnya
+                            dibandingkan lewat <b>slider sebelum/sesudah</b>. Hasil kompres langsung diunduh. Tanpa login, tanpa upload ke server.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- FILE PICKER -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="icon">📥</span>
+                        <h3 data-i18n="cx_006">INPUT VIDEO</h3>
+                    </div>
+                    <div class="tt-upload-dropzone" id="cmp-dropzone">
+                        <div class="tt-dz-icon">
+                            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <div data-i18n="cx_007" class="tt-dz-title">Pilih video untuk dikompres</div>
+                        <div data-i18n="cx_008" class="tt-dz-sub">atau seret &amp; lepas file ke sini</div>
+                        <div class="tt-dz-actions">
+                            <button data-i18n="cx_009" type="button" class="tt-dz-btn" id="cmp-pick-btn">Pilih video</button>
+                        </div>
+                        <div data-i18n="cx_010" class="tt-dz-meta">
+                            MP4, MOV, M4V, 3GP, MKV, WebM, AVI &middot; diproses lokal di perangkatmu
+                        </div>
+                        <input data-i18n-aria="cxa_01" type="file" id="cmp-file-input" class="kuro-file-overlay kuro-file-overlay-full"
+                               accept="video/*,.mp4,.mov,.m4v,.3gp,.mkv,.webm,.avi"
+                               aria-label="Pilih video untuk dikompres">
+                    </div>
+                    <p data-i18n="cx_011" class="cmp-hint" style="margin-top:10px; text-align:center;">
+                        Setelah memilih video, halaman pengaturan kompres terbuka otomatis.
+                    </p>
+                </div>
+                </div><!-- /mode-kompres -->
+
+                <!-- ========== MODE 2: KURO TRANSCODE ========== -->
+                <div id="mode-transcode" class="hidden">
+                <div class="card card-neon" style="border-left: 4px solid #a78bfa; margin-bottom: 14px;">
+                    <div class="toggle-info">
+                        <h4 style="color:#c4b5fd;">🔧 KURO TRANSCODE</h4>
+                        <p style="font-size:0.8rem; color:#e2e8f0; margin-top:5px; line-height:1.55;">
+                            Mode cepat: <b>HQ Upscale</b>, <b>2x FPS</b>, <b>Patcher</b>, <b>FastStart</b>,
+                            <b>Kompres+FastStart</b>, dan <b>All-In-One</b>. Proses lokal di browser (WASM).
+                            Suara Sinon menyertai setiap tahap.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="icon">📥</span>
+                        <h3>INPUT VIDEO</h3>
+                    </div>
+                    <div class="tt-upload-dropzone" id="tc-dropzone" style="position:relative;">
+                        <div class="tt-dz-icon">
+                            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <div class="tt-dz-title">Pilih video untuk Transcode</div>
+                        <div class="tt-dz-sub">atau seret &amp; lepas file ke sini</div>
+                        <div class="tt-dz-actions">
+                            <button type="button" class="tt-dz-btn" onclick="document.getElementById('tc-videoInput').click()">Pilih video</button>
+                        </div>
+                        <div class="tt-dz-meta">
+                            MP4 / MOV / MKV / WebM · diproses lokal
+                        </div>
+                        <input type="file" id="tc-videoInput" accept="video/*,.mp4,.mov,.m4v,.3gp,.mkv,.webm,.avi"
+                               class="kuro-file-overlay kuro-file-overlay-full"
+                               aria-label="Pilih video untuk Kuro Transcode">
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:12px;">
+                    <div class="card-header">
+                        <span class="icon">⚙️</span>
+                        <h3>MODE PROCESSING</h3>
+                    </div>
+                    <div style="padding: 4px 2px 8px;">
+                        <label style="display:block; margin-bottom:6px; font-size:0.8rem; color:#94a3b8;">Pilih mode encoder:</label>
+                        <select id="tc-modeSelect" style="width:100%; padding:12px; border-radius:8px; border:1px solid #334155; background:#1e2230; color:#e2e8f0; font-size:0.9rem;">
+                            <option value="hq_upscale">✨ HQ Resolution Upscale (High Quality Scaling)</option>
+                            <option value="fps_2x">🚀 Multiplier 2x FPS (Frame Rate Doubler)</option>
+                            <option value="patch_video">🛠️ Kuro MP4 Patcher (AnnexB / Fix Header)</option>
+                            <option value="optimize_moov">⚡ Optimizer FastStart (MOOV Atom Relocation)</option>
+                            <option value="compress_faststart">🎬 Kompres + FastStart (Web Ready)</option>
+                            <option value="all_in_one" selected>🔥 Kuro All-In-One (HQ + 2x FPS + Patcher + FastStart)</option>
+                        </select>
+                        <label style="display:block; margin:12px 0 6px; font-size:0.8rem; color:#94a3b8;">Target resolusi HQ (mode HQ / All-In-One):</label>
+                        <select id="tc-resolutionTarget" style="width:100%; padding:12px; border-radius:8px; border:1px solid #334155; background:#1e2230; color:#e2e8f0; font-size:0.9rem;">
+                            <option value="original">Tetap resolusi asli</option>
+                            <option value="720">720p HD (1280×720)</option>
+                            <option value="1080" selected>1080p Full HD (1920×1080)</option>
+                            <option value="1440">1440p / 2K QHD (2560×1440)</option>
+                            <option value="2160">4K Ultra HD (3840×2160)</option>
+                            <option value="4320">8K Ultra HD (7680×4320)</option>
+                        </select>
+                        <button type="button" id="tc-processBtn"
+                            style="width:100%; margin-top:12px; padding:14px; border:none; border-radius:10px; background:linear-gradient(135deg,#a78bfa,#7c3aed); color:#fff; font-weight:800; font-size:0.95rem; cursor:pointer; letter-spacing:0.3px;">
+                            PROSES VIDEO SEKARANG
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:12px;">
+                    <div class="card-header">
+                        <span class="icon">📋</span>
+                        <h3>PROGRESS &amp; SYSTEM LOG</h3>
+                    </div>
+                    <div id="tc-logBox" style="background:#08090d; border:1px solid #222; border-radius:8px; padding:10px; height:160px; overflow-y:auto; font-family:ui-monospace,monospace; font-size:0.8rem; color:#00ff66; line-height:1.45;">
+                        <div>Sistem siap. Silakan pilih video dan mode Transcode...</div>
+                    </div>
+                </div>
+                </div><!-- /mode-transcode -->
+
+            </div><!-- /tab-encoder -->
+
+            <!-- ================= TAB ANALYZER ================= -->
+            <div id="tab-analyzer" class="tab-content hidden">
+                <div class="developer-badge">⚡ Kuro Analyzer <span class="version-pill">V1.5.4</span></div>
+
+                <div class="card card-neon analyzer-note-card" style="margin-bottom: 14px;">
+                    <div class="toggle-info">
+                        <h4 style="color: #00ffaa;" data-i18n="an_note_title">🔍 TIKTOK VIDEO ANALYZER</h4>
+                        <p style="font-size: 0.8rem; color: #e2e8f0; margin-top: 5px; line-height: 1.5;" data-i18n="an_note">
+                            Analyzer V1 memberi ringkasan cepat. Analyzer V2 membaca stream asli TikTok (moov atom) dan menampilkan deteksi HD, codec, bitrate, audio, rasio aspek, serta engagement dalam kartu yang lengkap.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="card card-neon">
+                    <div class="form-group">
+                        <label for="tiktok-url-input" data-i18n="chk_label">Tempel Link Video TikTok:</label>
+                        <button class="btn-refresh" id="btn-paste-url" type="button" style="width:100%; margin-bottom:8px;" data-i18n="chk_paste">📋 Tempel</button>
+                        <div class="select-search-box">
+                            <input type="text" id="tiktok-url-input" placeholder="https://vt.tiktok.com/xxxx/ atau https://www.tiktok.com/@user/video/xxx"
+                              style="width:100%; padding:11px 12px; border-radius:8px; border:1px solid #334155; background:#1e2230; color:#e2e8f0; box-sizing:border-box;">
+                        </div>
+                    </div>
+
+                    <div class="analyzer-version-switch" style="margin-top:10px;">
+                        <button type="button" class="analyzer-version-btn active" id="btn-analyze-v1">Analyzer V1</button>
+                        <button type="button" class="analyzer-version-btn" id="btn-analyze-v2">Analyzer V2 · HD</button>
+                    </div>
+
+                    <button type="button" class="btn-start-upload" id="btn-analyze-run" style="font-size:0.78rem; padding:11px; width:100%; margin-top:10px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                        <span data-i18n="cx_015" id="analyze-run-label">Analisa Video (V1)</span>
+                    </button>
+                </div>
+
+                <div id="analyzer-v1-wrap" class="analyzer-result-wrap">
+                    <div id="video-info-result" class="status-box margin-top" style="display: none; white-space: pre-wrap; font-family: monospace;"></div>
+                </div>
+
+                <div id="analyzer-v2-wrap" class="analyzer-result-wrap hidden">
+                    <div id="analyzer-v2-result"></div>
+                </div>
+            </div><!-- /tab-analyzer -->
+
+  </div>
+</div>
+
+    <div id="kompres-composer" class="kuro-composer-overlay hidden">
+        <div class="composer-topbar">
+            <div>
+                <div data-i18n="cx_016" class="composer-title">🎬 Kompres Video</div>
+                <div data-i18n="cx_017" class="composer-step" id="kc-step">Atur pengaturan lalu kompres</div>
+            </div>
+            <div class="composer-topbar-actions">
+                <button data-i18n-title="cxa_02" data-i18n="cx_018" type="button" class="kc-guide-btn" id="kc-guide-btn" title="Buka panduan lengkap">📖 Panduan</button>
+                <button type="button" class="btn-logout" id="kc-close" style="border-color:rgba(255,255,255,.25); color:#cbd5e1; background:rgba(255,255,255,.06);">✕</button>
+            </div>
+        </div>
+
+        <div class="composer-scroll">
+
+            <!-- FILEBAR -->
+            <div class="composer-filebar" id="cmp-filebar">
+                <div class="cf-icon">🎞️</div>
+                <div class="cf-main">
+                    <div class="cf-name" id="cmp-filename">—</div>
+                    <div class="cf-sub"><span class="cf-badge" id="cmp-filemeta">—</span></div>
+                </div>
+                <button data-i18n="cx_019" type="button" class="btn-clear" id="kc-change-file">Ganti</button>
+            </div>
+
+            <!-- BEFORE / AFTER SLIDER -->
+            <div class="composer-section">
+                <h5 data-i18n="cx_020">🔍 Sebelum &amp; Sesudah Kompres</h5>
+                <div class="cmp-slider" id="cmp-slider">
+                    <div class="cmp-slider-stage" id="cmp-slider-stage">
+                        <video id="cmp-before-video" playsinline muted loop preload="metadata"></video>
+                        <span data-i18n="cx_021" class="cmp-empty" id="cmp-before-empty">Pilih video dulu</span>
+                        <div class="cmp-after-layer" id="cmp-after-layer">
+                            <video id="cmp-after-video" playsinline muted loop preload="metadata"></video>
+                            <span data-i18n="cx_022" class="cmp-empty" id="cmp-after-empty">Hasil kompres muncul di sini</span>
+                        </div>
+                        <div data-i18n="cx_023" class="cmp-slider-label before" id="cmp-slider-before-label">SEBELUM</div>
+                        <div data-i18n="cx_024" class="cmp-slider-label after" id="cmp-slider-after-label">SESUDAH</div>
+                        <div class="cmp-divider" id="cmp-divider">
+                            <span class="cmp-divider-handle">⇆</span>
+                        </div>
+                        <div data-i18n-html="cx_025" class="cmp-slider-note hidden" id="cmp-slider-note">
+                            ✨ Ini tampilan <b>SESUDAH</b> kompres — geser ke kanan untuk kembali ke <b>SEBELUM</b>
+                        </div>
+                    </div>
+                    <input data-i18n-aria="cxa_03" type="range" id="cmp-slider-range" class="cmp-slider-range"
+                           min="0" max="100" value="100" step="1"
+                           aria-label="Geser pembanding sebelum dan sesudah kompres">
+                    <div class="cmp-slider-meta">
+                        <span class="cmp-slider-meta-before"><i class="cmp-dot before"></i> <b id="cmp-before-size">—</b> · <span id="cmp-before-res">—</span></span>
+                        <span class="cmp-slider-meta-after"><i class="cmp-dot after"></i> <b id="cmp-after-size">—</b> · <span id="cmp-after-res">—</span></span>
+                    </div>
+                    <div class="cmp-saving hidden" id="cmp-saving">
+                        <b id="cmp-saving-pct">0%</b>
+                        <span data-i18n="cx_026">lebih kecil dari file asli</span>
+                    </div>
+                </div>
+
+                <!-- HASIL KOMPRES (menyatu dengan slider sebelum/sesudah) -->
+                <div class="cmp-result-card hidden" id="cmp-result-card">
+                    <div class="cmp-result-head">
+                        <span data-i18n="cx_027">📊 Hasil Kompres</span>
+                        <span data-i18n="cx_028" class="cmp-result-status" id="cmp-res-status">BERHASIL</span>
+                    </div>
+                    <div class="cmp-info-grid" id="cmp-result-grid">
+                        <div class="cmp-info-item"><span>Container</span><b id="cmp-res-container">—</b></div>
+                        <div class="cmp-info-item"><span>Video Codec</span><b id="cmp-res-vcodec">—</b></div>
+                        <div class="cmp-info-item"><span>Profile</span><b id="cmp-res-profile">—</b></div>
+                        <div class="cmp-info-item"><span>Level</span><b id="cmp-res-level">—</b></div>
+                        <div class="cmp-info-item"><span>Pixel Format</span><b id="cmp-res-pixfmt">—</b></div>
+                        <div class="cmp-info-item"><span>Mode</span><b id="cmp-res-mode">—</b></div>
+                        <div class="cmp-info-item"><span data-i18n="cx_029">Kualitas</span><b id="cmp-res-quality">—</b></div>
+                        <div class="cmp-info-item"><span data-i18n="cx_030">Resolusi Output</span><b id="cmp-res-res">—</b></div>
+                        <div class="cmp-info-item"><span>Aspect Ratio</span><b id="cmp-res-aspect">—</b></div>
+                        <div class="cmp-info-item"><span data-i18n="cx_031">FPS Output</span><b id="cmp-res-fps">—</b></div>
+                        <div class="cmp-info-item"><span>GOP / Keyframe</span><b id="cmp-res-gop">—</b></div>
+                        <div class="cmp-info-item"><span>Video Bitrate</span><b id="cmp-res-vbitrate">—</b></div>
+                        <div class="cmp-info-item"><span>Audio Codec</span><b id="cmp-res-acodec">—</b></div>
+                        <div class="cmp-info-item"><span>Audio Profile</span><b id="cmp-res-aprofile">—</b></div>
+                        <div class="cmp-info-item"><span>Audio Bitrate</span><b id="cmp-res-abitrate">—</b></div>
+                        <div class="cmp-info-item"><span>Sample Rate</span><b id="cmp-res-samplerate">—</b></div>
+                        <div class="cmp-info-item"><span>Description Tag</span><b id="cmp-res-desc">—</b></div>
+                        <div class="cmp-info-item"><span data-i18n="cx_032">Ukuran Awal</span><b id="cmp-res-in">—</b></div>
+                        <div class="cmp-info-item"><span data-i18n="cx_033">Ukuran Akhir</span><b id="cmp-res-out">—</b></div>
+                        <div class="cmp-info-item"><span data-i18n="cx_034">Penghematan</span><b id="cmp-res-saved">—</b></div>
+                        <div class="cmp-info-item"><span data-i18n="cx_035">Durasi Encode</span><b id="cmp-res-time">—</b></div>
+                        <div class="cmp-info-item"><span data-i18n="cx_036">Nama File Hasil</span><b id="cmp-res-filename">—</b></div>
+                    </div>
+                    <div data-i18n="cx_037" class="cmp-result-foot" id="cmp-res-foot">
+                        Hasil kompres diunduh otomatis. Geser slider ke kiri untuk melihat SESUDAH.
+                    </div>
+                </div>
+            </div>
+
+            <!-- INFO VIDEO ASLI -->
+            <div class="composer-section" id="cmp-info-section">
+                <h5 data-i18n="cx_038">📋 Info Video Asli</h5>
+                <div class="cmp-info-grid" id="cmp-info-grid">
+                    <div class="cmp-info-item"><span data-i18n="cx_039">Nama File</span><b id="cmp-info-name">—</b></div>
+                    <div class="cmp-info-item"><span>Container</span><b id="cmp-info-container">—</b></div>
+                    <div class="cmp-info-item"><span data-i18n="cx_040">Ukuran</span><b id="cmp-info-size">—</b></div>
+                    <div class="cmp-info-item"><span data-i18n="cx_041">Resolusi</span><b id="cmp-info-res">—</b></div>
+                    <div class="cmp-info-item"><span>Aspect Ratio</span><b id="cmp-info-aspect">—</b></div>
+                    <div class="cmp-info-item"><span data-i18n="cx_042">Durasi</span><b id="cmp-info-duration">—</b></div>
+                    <div class="cmp-info-item"><span>FPS</span><b id="cmp-info-fps">—</b></div>
+                    <div class="cmp-info-item"><span>Video Codec</span><b id="cmp-info-vcodec">—</b></div>
+                    <div class="cmp-info-item"><span>Audio Codec</span><b id="cmp-info-acodec">—</b></div>
+                    <div class="cmp-info-item"><span data-i18n="cx_043">Bitrate Total</span><b id="cmp-info-bitrate">—</b></div>
+                </div>
+            </div>
+
+            <!-- RINGKASAN PILIHAN -->
+            <div class="composer-section" id="cmp-summary-section">
+                <h5 data-i18n="cx_044">🧾 Ringkasan Pilihan</h5>
+                <div class="cmp-info-grid" id="cmp-summary-grid">
+                    <div class="cmp-info-item"><span>Codec</span><b id="cmp-sum-codec">—</b></div>
+                    <div class="cmp-info-item"><span data-i18n="cx_029">Kualitas</span><b id="cmp-sum-quality">—</b></div>
+                    <div class="cmp-info-item"><span data-i18n="cx_041">Resolusi</span><b id="cmp-sum-res">—</b></div>
+                    <div class="cmp-info-item"><span>FPS</span><b id="cmp-sum-fps">—</b></div>
+                    <div class="cmp-info-item"><span>Aspect</span><b id="cmp-sum-aspect">—</b></div>
+                    <div class="cmp-info-item"><span>GOP</span><b id="cmp-sum-gop">—</b></div>
+                    <div class="cmp-info-item"><span>Preset</span><b id="cmp-sum-preset">—</b></div>
+                    <div class="cmp-info-item"><span>Audio</span><b id="cmp-sum-audio">—</b></div>
+                    <div class="cmp-info-item"><span>Container</span><b id="cmp-sum-container">—</b></div>
+                    <div class="cmp-info-item"><span>Metadata</span><b id="cmp-sum-metadata">—</b></div>
+                    <div class="cmp-info-item"><span>Faststart</span><b id="cmp-sum-faststart">—</b></div>
+                </div>
+            </div>
+
+            <!-- PANDUAN LENGKAP (satu panel, isi gabungan dari videokompres2.3.sh) -->
+            <details class="cmp-guide" id="cmp-guide">
+                <summary>
+                    <span data-i18n="cx_045">📖 Panduan Lengkap</span>
+                    <em data-i18n="cx_046">Bitrate · Level · CRF · Preset · Resolusi · FPS · GOP · Audio</em>
+                </summary>
+                <div class="cmp-guide-body">
+
+                    <div class="cmp-guide-sec">
+                        <h6 data-i18n="cx_047">🎯 Mode Kompres</h6>
+                        <p data-i18n-html="cx_048"><b>CRF</b> — kualitas tetap, ukuran menyesuaikan isi video. Paling aman untuk
+                        sebagian besar pengguna. <b>Bitrate</b> — ukuran lebih terprediksi, cocok untuk
+                        target ukuran / upload / arsip.</p>
+                    </div>
+
+                    <div class="cmp-guide-sec">
+                        <h6 data-i18n="cx_049">🎚️ Kualitas CRF</h6>
+                        <table class="cmp-guide-table">
+                            <tr><td>100% · CRF 18</td><td data-i18n="cx_050">Hampir lossless, ukuran sangat besar</td></tr>
+                            <tr><td>90% · CRF 21</td><td data-i18n="cx_051">Kualitas sangat tinggi</td></tr>
+                            <tr><td>80% · CRF 24</td><td data-i18n="cx_052">Seimbang ⭐ rekomendasi</td></tr>
+                            <tr><td>70% · CRF 27</td><td data-i18n="cx_053">Ukuran lebih kecil</td></tr>
+                            <tr><td>60% · CRF 30</td><td data-i18n="cx_054">Kompresi tinggi</td></tr>
+                            <tr><td>50% · CRF 33</td><td data-i18n="cx_055">Ukuran sangat kecil, detail berkurang</td></tr>
+                        </table>
+                        <p data-i18n-html="cx_056" class="cmp-guide-tip">MPEG-4 memakai skala <b>q:v</b> yang otomatis dikonversi
+                        dari CRF (CRF 18→q2, 21→q4, 24→q6, 27→q8, 30→q10, 33→q12).</p>
+                    </div>
+
+                    <div class="cmp-guide-sec">
+                        <h6 data-i18n="cx_057">📶 Bitrate Video — rekomendasi per resolusi &amp; FPS</h6>
+                        <p data-i18n-html="cx_058" class="cmp-guide-tip">H.265 / VP9 / AV1 hemat <b>±40–50%</b> bitrate dibanding
+                        H.264 untuk kualitas visual setara. Jadi <b>720p 60fps H.265 Main cukup 3M–5M</b>
+                        (H.264 butuh 6M–8M).</p>
+                        <table class="cmp-guide-table cmp-guide-table-3">
+                            <thead><tr><th data-i18n="cx_059">Resolusi / FPS</th><th>H.264 (AVC)</th><th>H.265 / VP9 / AV1</th></tr></thead>
+                            <tbody>
+                                <tr><td>720p 30/60fps</td><td>6M – 8M</td><td><b>3M – 5M</b></td></tr>
+                                <tr><td>720p 120/240fps</td><td>10M – 14M</td><td><b>6M – 8M</b></td></tr>
+                                <tr><td>1080p 30/60fps</td><td>10M – 16M ⭐</td><td><b>6M – 10M</b> ⭐</td></tr>
+                                <tr><td>1080p 120/240fps</td><td>18M – 26M</td><td><b>10M – 16M</b></td></tr>
+                                <tr><td>1440p 30/60fps</td><td>16M – 24M</td><td><b>10M – 15M</b></td></tr>
+                                <tr><td>1440p 120fps</td><td>26M – 36M</td><td><b>14M – 18M</b></td></tr>
+                                <tr><td>1440p 240fps</td><td>26M – 36M</td><td><b>18M – 24M</b> ⭐</td></tr>
+                                <tr><td>4K 30/60fps</td><td>30M – 40M</td><td><b>18M – 24M</b> ⭐</td></tr>
+                                <tr><td>4K 120/240fps</td><td>50M – 80M</td><td><b>28M – 40M</b></td></tr>
+                            </tbody>
+                        </table>
+                        <p data-i18n="cx_060" class="cmp-guide-tip">Berlaku untuk 1:1 / 9:16 / 16:9 / 21:9 — rasio tidak mengubah
+                        angka bitrate karena yang dihitung adalah pixel rate.</p>
+                    </div>
+
+                    <div class="cmp-guide-sec">
+                        <h6 data-i18n="cx_061">✍️ Bitrate Custom &amp; kesetaraannya</h6>
+                        <p data-i18n-html="cx_062" class="cmp-guide-tip">Format: <b>1500k</b>, <b>1.5M</b>, <b>10M</b> (minimal 100k).</p>
+                        <table class="cmp-guide-table">
+                            <tr><td>500k</td><td data-i18n="cx_063">Sangat hemat / low quality</td></tr>
+                            <tr><td>1.5M</td><td>H.265 720p ≈ H.264 2.5M</td></tr>
+                            <tr><td>4.0M</td><td>H.265 1080p30 ≈ H.264 6.5M</td></tr>
+                            <tr><td>8.0M</td><td>H.265 1440p60 ≈ H.264 14M–16M</td></tr>
+                            <tr><td>18M</td><td>H.265 1440p240 ≈ H.264 32M–35M</td></tr>
+                            <tr><td>24M</td><td>H.265 4K60/120 ≈ H.264 42M–45M</td></tr>
+                            <tr><td>50M</td><td data-i18n="cx_064">Bitrate tinggi / mastering</td></tr>
+                        </table>
+                    </div>
+
+                    <div class="cmp-guide-sec">
+                        <h6 data-i18n="cx_065">📏 Level per Codec — batas resolusi & FPS</h6>
+                        <p data-i18n-html="cx_066" class="cmp-guide-tip">Level menentukan batas maksimum resolusi × FPS × bitrate.
+                        Pilih level <b>terendah yang masih menampung</b> resolusi/FPS kamu — level terlalu
+                        rendah = encoder menolak / hasil rusak, level terlalu tinggi = boros & tidak
+                        kompatibel dengan pemutar lama.</p>
+                        <table class="cmp-guide-table cmp-guide-table-4">
+                            <thead><tr><th data-i18n="cx_059">Resolusi / FPS</th><th>H.264</th><th>H.265</th><th>VP9 / AV1</th></tr></thead>
+                            <tbody>
+                                <tr><td>720p 30/60fps</td><td>3.1 – 4.1</td><td>3.1 – 4.1</td><td>3.0 – 3.1</td></tr>
+                                <tr><td>720p 120fps</td><td>4.0 – 4.2</td><td>4.0 – 5.0</td><td>4.0 – 4.1</td></tr>
+                                <tr><td>720p 240fps</td><td>4.2 – 5.1</td><td>4.0 – 5.0</td><td>4.0 – 4.1</td></tr>
+                                <tr><td>1080p 30fps</td><td>4.0 – 4.2</td><td>4.0 – 4.1</td><td>4.0 – 4.1</td></tr>
+                                <tr><td>1080p 60fps</td><td>4.1 – 5.0 ⭐</td><td>4.1 – 5.0</td><td>4.0 – 4.1 ⭐</td></tr>
+                                <tr><td>1080p 120fps</td><td>4.2 – 5.1</td><td>5.0 – 5.1</td><td>4.1 – 5.0</td></tr>
+                                <tr><td>1080p 240fps</td><td>5.1 – 5.2</td><td>5.1 – 5.2</td><td>5.0 – 5.1</td></tr>
+                                <tr><td>1440p 30/60fps</td><td>4.2 – 5.1</td><td>4.1 – 5.0</td><td>4.1 – 5.0</td></tr>
+                                <tr><td>1440p 120fps</td><td>5.1 – 5.2</td><td>5.1 – 5.2</td><td>5.1 – 5.2</td></tr>
+                                <tr><td>1440p 240fps</td><td>5.2 – 6.0</td><td>5.1 – 5.2</td><td>5.1 – 5.2</td></tr>
+                                <tr><td>4K 30fps</td><td>5.1 – 5.2</td><td>5.0 – 5.1</td><td>5.0 – 5.1</td></tr>
+                                <tr><td>4K 60fps</td><td>5.1 – 5.2</td><td>5.1 – 5.2 ⭐</td><td>5.0 – 5.1</td></tr>
+                                <tr><td>4K 120fps</td><td>5.2 – 6.1</td><td>5.2 – 6.1</td><td>5.2 – 6.0</td></tr>
+                                <tr><td>4K 240fps</td><td>6.0 – 6.2</td><td>5.2 – 6.1</td><td>5.2 – 6.0</td></tr>
+                                <tr><td>8K 30/60fps</td><td>6.0 – 6.2</td><td>6.0 – 6.1</td><td>6.0 – 6.2</td></tr>
+                                <tr><td>8K 120fps</td><td>6.0 – 6.2</td><td>6.1 – 6.2</td><td>6.0 – 6.2</td></tr>
+                            </tbody>
+                        </table>
+                        <p data-i18n-html="cx_067" class="cmp-guide-tip">Arti pilihan level di dropdown: <b>4.0</b> ≈ 1080p30 ·
+                        <b>4.1</b> ≈ 1080p60 (rekomendasi umum) · <b>4.2</b> ≈ 1440p30 ·
+                        <b>5.0</b> ≈ 4K30 · <b>5.1</b> ≈ 4K60 · <b>5.2</b> ≈ 4K120 ·
+                        <b>6.0/6.1/6.2</b> ≈ 8K. Format custom: <b>4.2</b>, <b>5.1</b>, <b>6.2</b>.</p>
+                        <p data-i18n-html="cx_068" class="cmp-guide-tip"><b>MPEG-4</b> tidak memakai level angka, tapi profil:
+                        <b>Simple</b> (kompatibilitas maksimum, perangkat lama) atau
+                        <b>Advanced Simple</b> (kompresi lebih efisien, didukung DivX/Xvid ⭐).</p>
+                    </div>
+
+                    <div class="cmp-guide-sec">
+                        <h6 data-i18n="cx_069">⚙️ Preset Encoder</h6>
+                        <table class="cmp-guide-table">
+                            <tr><td>ultrafast · superfast</td><td data-i18n="cx_070">Paling cepat, beban CPU ringan, file paling besar — cocok testing / perangkat lemah</td></tr>
+                            <tr><td>veryfast · faster</td><td data-i18n="cx_071">Cepat, pemakaian harian, efisiensi sedang</td></tr>
+                            <tr><td>fast</td><td data-i18n="cx_072">Seimbang kecepatan vs ukuran</td></tr>
+                            <tr><td>medium</td><td data-i18n="cx_073">Default FFmpeg, keseimbangan terbaik ⭐</td></tr>
+                            <tr><td>slow · slower</td><td data-i18n="cx_074">File lebih kecil, kualitas tetap tinggi, encode lebih lama</td></tr>
+                            <tr><td>veryslow</td><td data-i18n="cx_075">Efisiensi maksimum, file paling kecil, encode sangat lama</td></tr>
+                        </table>
+                        <p data-i18n-html="cx_076" class="cmp-guide-tip">Preset ini dipetakan otomatis: SVT-AV1 → angka 0–13,
+                        libaom → <b>cpu-used</b>, VP9 → <b>cpu-used</b>.</p>
+                    </div>
+
+                    <div class="cmp-guide-sec">
+                        <h6 data-i18n="cx_077">🖼️ Resolusi &amp; FPS</h6>
+                        <p data-i18n-html="cx_078"><b>Resolusi:</b> Original · 480p (hemat) · 720p (HD) · <b>1080p (Full HD ⭐)</b> ·
+                        1440p (QHD) · 2160p (4K) · Custom (720–3840 px).<br>
+                        <b>FPS:</b> Original · 24 (gaya film) · 30 (standar) · <b>60 (gerakan halus ⭐ gaming)</b> ·
+                        120 (sangat halus, file lebih besar) · Custom 15–240.</p>
+                        <p data-i18n-html="cx_079" class="cmp-guide-tip">FPS diproses lewat filter <b>fps=fps=</b> (bukan <b>-r</b>)
+                        agar hasil CFR stabil seperti skrip v2.3.</p>
+                    </div>
+
+                    <div class="cmp-guide-sec">
+                        <h6>🔑 GOP / Keyframe</h6>
+                        <table class="cmp-guide-table">
+                            <tr><td data-i18n="cx_080">Otomatis</td><td data-i18n="cx_081">Diatur encoder, aman semua codec ⭐</td></tr>
+                            <tr><td data-i18n="cx_082">1 detik</td><td data-i18n="cx_083">Seek cepat, cocok streaming &amp; sosmed, bitrate sedikit boros</td></tr>
+                            <tr><td data-i18n="cx_084">2 detik</td><td data-i18n="cx_085">Standar streaming, seimbang</td></tr>
+                            <tr><td data-i18n="cx_086">5 detik</td><td data-i18n="cx_087">Hemat bitrate, seek &amp; editing lebih berat</td></tr>
+                            <tr><td>Custom</td><td data-i18n-html="cx_088">0.5–60 detik → <b>-g = detik × FPS</b></td></tr>
+                        </table>
+                    </div>
+
+                    <div class="cmp-guide-sec">
+                        <h6>🎵 Audio</h6>
+                        <p data-i18n-html="cx_089"><b>Copy</b> — audio asli tanpa re-encode (paling aman). <b>AAC/M4A</b> — AAC-LC
+                        (kompatibilitas terbaik ⭐), HE-AAC (efisien di 64–96 kbps), HE-AAC v2 (32–64 kbps).
+                        <b>MP3 · Opus · Vorbis · FLAC</b> (lossless).</p>
+                        <p data-i18n-html="cx_090" class="cmp-guide-tip">AAC-LC: 64k (kecil) · 96k (hemat) · 128k (standar) ·
+                        <b>192k (bagus ⭐)</b> · 256k (tinggi) · 320k (maksimum). HE-AAC: 32k · 48k · 64k · 96k.
+                        Sample rate: 44.1 kHz / 48 kHz / Custom.</p>
+                    </div>
+
+                    <div class="cmp-guide-sec">
+                        <h6>📦 Container</h6>
+                        <p data-i18n-html="cx_091"><b>MP4</b> — kompatibilitas terbaik (Android, iPhone, TV, YouTube) ⭐.
+                        <b>MKV</b> — banyak audio/subtitle, cocok koleksi film. <b>WEBM</b> — VP9/AV1, file kecil,
+                        cocok web &amp; streaming. <b>MOV</b> — format Apple, editing. <b>AVI</b> — format lawas,
+                        kompatibilitas luas.</p>
+                    </div>
+
+                </div>
+            </details>
+
+            <!-- VIDEO SETTINGS -->
+            <div class="composer-section">
+                <h5 data-i18n="cx_099">🎞️ Video</h5>
+                <div class="cmp-grid">
+
+                    <label class="cmp-field">
+                        <span data-i18n="cx_100">Codec Video</span>
+                        <select id="cmp-codec" class="tt-input tt-select">
+                            <option value="x264-baseline">1. H.264 Baseline</option>
+                            <option value="x264-main">2. H.264 Main</option>
+                            <option data-i18n="cx_101" value="x264-high" selected>3. H.264 High (rekomendasi)</option>
+                            <option value="x264-high10">4. H.264 High10 (10-bit)</option>
+                            <option value="x264-high422">5. H.264 High422</option>
+                            <option value="x264-high444">6. H.264 High444</option>
+                            <option value="x265-main">7. H.265 Main</option>
+                            <option value="x265-main10">8. H.265 Main10</option>
+                            <option value="x265-main422-10">9. H.265 Main422-10</option>
+                            <option value="x265-main444-10">10. H.265 Main444-10</option>
+                            <option value="vp9-0">11. VP9 Profile 0 (8-bit)</option>
+                            <option value="vp9-1">12. VP9 Profile 1 (4:4:4)</option>
+                            <option value="vp9-2">13. VP9 Profile 2 (10-bit)</option>
+                            <option value="vp9-3">14. VP9 Profile 3 (10-bit 4:4:4)</option>
+                            <option value="av1-svt">15. AV1 (SVT-AV1)</option>
+                            <option value="av1-aom">16. AV1 (libaom)</option>
+                            <option value="mpeg4">17. MPEG-4</option>
+                        </select>
+                    </label>
+
+                    <label class="cmp-field" id="cmp-level-field">
+                        <span>Level</span>
+                        <select id="cmp-level" class="tt-input tt-select">
+                            <option value="4.0">4.0</option>
+                            <option data-i18n="cx_102" value="4.1" selected>4.1 (rekomendasi)</option>
+                            <option value="4.2">4.2</option>
+                            <option value="5.0">5.0</option>
+                            <option value="5.1">5.1</option>
+                            <option value="5.2">5.2</option>
+                            <option value="6.0">6.0</option>
+                            <option value="6.1">6.1</option>
+                            <option value="6.2">6.2</option>
+                            <option data-i18n="cx_103" value="custom">Custom…</option>
+                        </select>
+                    </label>
+
+                    <div class="cmp-field hidden" id="cmp-custom-level-field">
+                        <span>Custom Level</span>
+                        <input data-i18n-ph="cxa_04" type="text" id="cmp-custom-level" class="tt-input" placeholder="contoh: 4.2" value="4.1">
+                    </div>
+
+                    <label class="cmp-field hidden" id="cmp-mpeg4-profile-field">
+                        <span data-i18n="cx_104">Profil MPEG-4</span>
+                        <select id="cmp-mpeg4-profile" class="tt-input tt-select">
+                            <option data-i18n="cx_105" value="3" selected>Advanced Simple (rekomendasi)</option>
+                            <option value="0">Simple</option>
+                        </select>
+                    </label>
+
+                    <label class="cmp-field">
+                        <span data-i18n="cx_106">Mode Kualitas</span>
+                        <select id="cmp-mode" class="tt-input tt-select">
+                            <option data-i18n="cx_107" value="crf" selected>CRF (kualitas tetap)</option>
+                            <option data-i18n="cx_108" value="bitrate">Bitrate (ukuran terprediksi)</option>
+                        </select>
+                    </label>
+
+                    <label class="cmp-field" id="cmp-crf-field">
+                        <span data-i18n="cx_109">Kualitas / CRF</span>
+                        <select id="cmp-crf" class="tt-input tt-select">
+                            <option data-i18n="cx_110" value="18">100% — hampir lossless (CRF 18)</option>
+                            <option data-i18n="cx_111" value="21">90% — sangat tinggi (CRF 21)</option>
+                            <option data-i18n="cx_112" value="24" selected>80% — seimbang (CRF 24)</option>
+                            <option data-i18n="cx_113" value="27">70% — lebih kecil (CRF 27)</option>
+                            <option data-i18n="cx_114" value="30">60% — kompresi tinggi (CRF 30)</option>
+                            <option data-i18n="cx_115" value="33">50% — sangat kecil (CRF 33)</option>
+                        </select>
+                    </label>
+
+                    <label class="cmp-field hidden" id="cmp-bitrate-field">
+                        <span data-i18n="cx_116">Bitrate Video</span>
+                        <select id="cmp-bitrate" class="tt-input tt-select">
+                            <option data-i18n="cx_103" value="custom">Custom…</option>
+                            <option value="6M">6 Mbps (720p)</option>
+                            <option data-i18n="cx_117" value="8M">8 Mbps (1080p hemat)</option>
+                            <option data-i18n="cx_118" value="10M" selected>10 Mbps (1080p standar)</option>
+                            <option data-i18n="cx_119" value="12M">12 Mbps (1080p tinggi)</option>
+                            <option data-i18n="cx_120" value="14M">14 Mbps (1080p sangat tinggi)</option>
+                            <option data-i18n="cx_121" value="16M">16 Mbps (1440p standar)</option>
+                            <option data-i18n="cx_122" value="18M">18 Mbps (1440p tinggi)</option>
+                            <option data-i18n="cx_123" value="20M">20 Mbps (1440p sangat tinggi)</option>
+                            <option data-i18n="cx_124" value="24M">24 Mbps (4K hemat)</option>
+                            <option data-i18n="cx_125" value="30M">30 Mbps (4K standar)</option>
+                            <option data-i18n="cx_126" value="40M">40 Mbps (4K tinggi)</option>
+                        </select>
+                    </label>
+
+                    <div class="cmp-field hidden" id="cmp-custom-bitrate-field">
+                        <span>Custom Bitrate</span>
+                        <input data-i18n-ph="cxa_05" type="text" id="cmp-custom-bitrate" class="tt-input" placeholder="contoh: 1.5M / 1500k" value="10M">
+                    </div>
+
+                    <label class="cmp-field">
+                        <span>Aspect Ratio</span>
+                        <select id="cmp-aspect" class="tt-input tt-select">
+                            <option data-i18n="cx_127" value="original" selected>Original (rasio asli)</option>
+                            <option value="1:1">1:1 (Square)</option>
+                            <option value="4:3">4:3 (Standard)</option>
+                            <option value="3:2">3:2 (Camera)</option>
+                            <option value="16:9">16:9 (Widescreen)</option>
+                            <option value="16:10">16:10 (Laptop)</option>
+                            <option value="21:9">21:9 (Ultrawide)</option>
+                            <option value="9:16">9:16 (Vertical)</option>
+                            <option data-i18n="cx_103" value="custom">Custom…</option>
+                            <option data-i18n="cx_128" value="skip">Lewati (jangan ubah)</option>
+                        </select>
+                    </label>
+
+                    <div class="cmp-field hidden" id="cmp-custom-aspect-field">
+                        <span>Custom Aspect (W : H)</span>
+                        <div class="cmp-two">
+                            <input type="number" id="cmp-ar-w" class="tt-input" min="1" placeholder="W" value="16">
+                            <input type="number" id="cmp-ar-h" class="tt-input" min="1" placeholder="H" value="9">
+                        </div>
+                    </div>
+
+                    <label class="cmp-field">
+                        <span data-i18n="cx_041">Resolusi</span>
+                        <select id="cmp-res" class="tt-input tt-select">
+                            <option value="original" selected>Original</option>
+                            <option value="480">480p</option>
+                            <option value="720">720p</option>
+                            <option data-i18n="cx_129" value="1080">1080p (rekomendasi)</option>
+                            <option value="1440">1440p</option>
+                            <option value="2160">2160p (4K)</option>
+                            <option data-i18n="cx_103" value="custom">Custom…</option>
+                        </select>
+                    </label>
+
+                    <div class="cmp-field hidden" id="cmp-custom-res-field">
+                        <span>Custom W × H</span>
+                        <div class="cmp-two">
+                            <input type="number" id="cmp-width" class="tt-input" min="720" max="3840" placeholder="Width" value="1080">
+                            <input type="number" id="cmp-height" class="tt-input" min="720" max="3840" placeholder="Height" value="1920">
+                        </div>
+                    </div>
+
+                    <label class="cmp-field">
+                        <span>FPS</span>
+                        <select id="cmp-fps" class="tt-input tt-select">
+                            <option value="original" selected>Original</option>
+                            <option value="24">24 FPS</option>
+                            <option value="30">30 FPS</option>
+                            <option value="60">60 FPS</option>
+                            <option value="120">120 FPS</option>
+                            <option data-i18n="cx_103" value="custom">Custom…</option>
+                        </select>
+                    </label>
+
+                    <div class="cmp-field hidden" id="cmp-custom-fps-field">
+                        <span>Custom FPS (15–120)</span>
+                        <input type="number" id="cmp-custom-fps" class="tt-input" min="15" max="120" value="30">
+                    </div>
+
+                    <label class="cmp-field">
+                        <span>Preset Encoder</span>
+                        <select id="cmp-preset" class="tt-input tt-select">
+                            <option value="ultrafast">ultrafast</option>
+                            <option value="superfast">superfast</option>
+                            <option value="veryfast">veryfast</option>
+                            <option value="faster">faster</option>
+                            <option value="fast">fast</option>
+                            <option data-i18n="cx_130" value="medium" selected>medium (rekomendasi)</option>
+                            <option value="slow">slow</option>
+                            <option value="slower">slower</option>
+                            <option value="veryslow">veryslow</option>
+                        </select>
+                    </label>
+
+                </div>
+            </div>
+
+            <!-- AUDIO SETTINGS -->
+            <div class="composer-section">
+                <h5>🎵 Audio</h5>
+                <div class="cmp-grid">
+
+                    <label class="cmp-field">
+                        <span data-i18n="cx_135">Codec Audio</span>
+                        <select id="cmp-audio" class="tt-input tt-select">
+                            <option data-i18n="cx_136" value="copy" selected>Copy (audio asli)</option>
+                            <option value="aac">AAC</option>
+                            <option value="m4a">M4A (AAC)</option>
+                            <option value="mp3">MP3</option>
+                            <option value="opus">Opus</option>
+                            <option value="vorbis">Vorbis</option>
+                            <option value="flac">FLAC (lossless)</option>
+                        </select>
+                    </label>
+
+                    <label class="cmp-field hidden" id="cmp-aac-profile-field">
+                        <span data-i18n="cx_137">Profil AAC</span>
+                        <select id="cmp-aac-profile" class="tt-input tt-select">
+                            <option data-i18n="cx_138" value="LC" selected>AAC-LC (standar)</option>
+                            <option data-i18n="cx_139" value="HE">HE-AAC (bitrate rendah)</option>
+                            <option data-i18n="cx_140" value="HEv2">HE-AAC v2 (sangat efisien)</option>
+                        </select>
+                    </label>
+
+                    <label class="cmp-field" id="cmp-audio-bitrate-field">
+                        <span data-i18n="cx_141">Bitrate Audio</span>
+                        <select id="cmp-audio-bitrate" class="tt-input tt-select">
+                            <option value="32k">32 kbps</option>
+                            <option value="48k">48 kbps</option>
+                            <option value="64k">64 kbps</option>
+                            <option value="96k">96 kbps</option>
+                            <option value="128k">128 kbps</option>
+                            <option data-i18n="cx_142" value="192k" selected>192 kbps (rekomendasi)</option>
+                            <option value="256k">256 kbps</option>
+                            <option value="320k">320 kbps</option>
+                            <option data-i18n="cx_103" value="custom">Custom…</option>
+                        </select>
+                    </label>
+
+                    <div class="cmp-field hidden" id="cmp-custom-abit-field">
+                        <span data-i18n="cx_143">Custom Bitrate Audio</span>
+                        <input data-i18n-ph="cxa_06" type="text" id="cmp-custom-abit" class="tt-input" placeholder="contoh: 160k" value="192k">
+                    </div>
+
+                    <label class="cmp-field">
+                        <span>Sample Rate</span>
+                        <select id="cmp-samplerate" class="tt-input tt-select">
+                            <option value="original" selected>Original</option>
+                            <option value="22050">22050 Hz</option>
+                            <option value="32000">32000 Hz</option>
+                            <option value="44100">44100 Hz</option>
+                            <option value="48000">48000 Hz</option>
+                            <option value="96000">96000 Hz</option>
+                            <option data-i18n="cx_103" value="custom">Custom…</option>
+                        </select>
+                    </label>
+
+                    <div class="cmp-field hidden" id="cmp-custom-samplerate-field">
+                        <span>Custom Sample Rate (8000–192000)</span>
+                        <input type="number" id="cmp-custom-samplerate" class="tt-input" min="8000" max="192000" value="48000">
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- OUTPUT SETTINGS -->
+            <div class="composer-section">
+                <h5 data-i18n="cx_144">📦 Output</h5>
+                <div class="cmp-grid">
+
+                    <label class="cmp-field">
+                        <span data-i18n="cx_145">Container Output</span>
+                        <select id="cmp-container" class="tt-input tt-select">
+                            <option data-i18n="cx_146" value="auto" selected>Otomatis (MP4/MKV)</option>
+                            <option value="mp4">MP4</option>
+                            <option value="mkv">MKV</option>
+                            <option value="webm">WebM</option>
+                            <option value="mov">MOV</option>
+                            <option value="avi">AVI</option>
+                        </select>
+                    </label>
+
+                    <label class="cmp-field">
+                        <span>Metadata</span>
+                        <select id="cmp-metadata" class="tt-input tt-select">
+                            <option data-i18n="cx_147" value="keep" selected>Pertahankan metadata</option>
+                            <option data-i18n="cx_148" value="strip">Hapus metadata</option>
+                        </select>
+                    </label>
+
+                    <label class="cmp-field">
+                        <span>Faststart (MP4/MOV)</span>
+                        <select id="cmp-faststart" class="tt-input tt-select">
+                            <option data-i18n="cx_149" value="on" selected>Aktif (cocok upload)</option>
+                            <option data-i18n="cx_150" value="off">Nonaktif</option>
+                        </select>
+                    </label>
+
+                    <label class="cmp-field">
+                        <span data-i18n="cx_151">GOP / Keyframe Interval</span>
+                        <select id="cmp-gop" class="tt-input tt-select">
+                            <option data-i18n="cx_152" value="auto" selected>Otomatis (default encoder)</option>
+                            <option data-i18n="cx_082" value="1">1 detik</option>
+                            <option data-i18n="cx_084" value="2">2 detik</option>
+                            <option data-i18n="cx_086" value="5">5 detik</option>
+                            <option data-i18n="cx_103" value="custom">Custom…</option>
+                        </select>
+                    </label>
+
+                    <div class="cmp-field hidden" id="cmp-custom-gop-field">
+                        <span data-i18n="cx_153">Custom GOP (detik, 0.5–60)</span>
+                        <input type="number" id="cmp-custom-gop" class="tt-input" min="0.5" max="60" step="0.5" value="1">
+                    </div>
+
+                </div>
+                <div class="cmp-status" id="cmp-status">Pilih video untuk mulai.</div>
+            </div>
+
+        </div>
+
+        <div class="composer-actions">
+            <button data-i18n="cx_155" type="button" class="btn-composer-secondary" id="kc-back">← Kembali</button>
+            <button data-i18n="cx_156" type="button" class="btn-composer-post" id="cmp-start" disabled>🗜️ LANJUT KOMPRES</button>
+            <button data-i18n="cx_157" type="button" class="btn-composer-secondary hidden" id="cmp-download">⬇️ Unduh Lagi</button>
+        </div>
+    </div>
+
+    <!-- ================= KOMPRES REVIEW (INFO + RINGKASAN) ================= -->
+    <div id="cmp-review" class="cmp-review-overlay hidden">
+        <div class="cmp-review-topbar">
+            <div>
+                <div data-i18n="cx_158" class="cmp-review-title">🧾 Ringkasan Sebelum Kompres</div>
+                <div data-i18n="cx_159" class="cmp-review-step">Periksa info video asli &amp; pilihanmu. Mau ganti? Tekan Kembali.</div>
+            </div>
+            <button type="button" class="btn-logout" id="cmp-review-x" style="border-color:rgba(255,255,255,.25); color:#cbd5e1; background:rgba(255,255,255,.06);">✕</button>
+        </div>
+        <div class="cmp-review-scroll">
+            <div class="composer-section">
+                <h5 data-i18n="cx_038">📋 Info Video Asli</h5>
+                <div class="cmp-info-grid" id="cmp-review-info"></div>
+            </div>
+            <div class="composer-section">
+                <h5 data-i18n="cx_044">🧾 Ringkasan Pilihan</h5>
+                <div class="cmp-info-grid" id="cmp-review-summary"></div>
+            </div>
+            <div data-i18n-html="cx_160" class="cmp-review-note">
+                💡 Kalau mau mengubah pilihan, tekan <b>← Kembali</b> — kamu akan kembali ke halaman pengaturan kompres
+                (bukan ke tampilan awal ekstensi).
+            </div>
+        </div>
+        <div class="composer-actions">
+            <button data-i18n="cx_155" type="button" class="btn-composer-secondary" id="cmp-review-back">← Kembali</button>
+            <button data-i18n="cx_161" type="button" class="btn-composer-post" id="cmp-review-start">🗜️ Mulai Kompres</button>
+        </div>
+    </div>
+
+
+    <!-- ================= UPLOAD PROGRESS OVERLAY (16:9) ================= -->
+    <div id="upload-overlay" class="kuro-upload-overlay hidden">
+        <div class="kuro-video-stage">
+            <video id="upload-overlay-video" muted playsinline></video>
+            <div class="kuro-stage-shade"></div>
+            <div data-i18n="cx_162" class="kuro-stage-badge">● MEMPROSES VIDEO</div>
+            <div class="kuro-countdown hidden" id="upload-countdown">
+                <b id="upload-countdown-num">3</b>
+                <span data-i18n="ov_countdown">Menyiapkan…</span>
+            </div>
+            <div class="kuro-stage-percent">
+                <b id="upload-overlay-percent">0%</b>
+                <span id="upload-overlay-status" data-i18n="ov_status_init">Menyiapkan file…</span>
+            </div>
+            <div class="kuro-stage-stats" id="upload-overlay-stats">
+                <div class="kuro-stat">
+                    <b id="ov-mb">0 MB</b>
+                    <span data-i18n="cx_163">Ukuran hasil</span>
+                </div>
+                <div class="kuro-stat">
+                    <b id="ov-speed">–</b>
+                    <span data-i18n="cx_164">Kecepatan</span>
+                </div>
+                <div class="kuro-stat">
+                    <b id="ov-eta">–</b>
+                    <span>ETA</span>
+                </div>
+            </div>
+            <div class="kuro-stage-file" id="upload-overlay-file">—</div>
+        </div>
+
+        <div class="kuro-stage-steps">
+            <div class="kuro-stage-step" id="upload-step-1">
+                <span class="kuro-step-dot"></span>
+                <span data-i18n="cx_165" style="width:88px;">Membaca file</span>
+                <span class="kuro-stage-bar"><i id="upload-bar-1"></i></span>
+                <span class="kuro-stage-pct" id="upload-pct-1">0%</span>
+            </div>
+            <div class="kuro-stage-step" id="upload-step-2">
+                <span class="kuro-step-dot"></span>
+                <span data-i18n="cx_166" style="width:88px;">Mengompres</span>
+                <span class="kuro-stage-bar"><i id="upload-bar-2"></i></span>
+                <span class="kuro-stage-pct" id="upload-pct-2">0%</span>
+            </div>
+            <div class="kuro-stage-step" id="upload-step-3">
+                <span class="kuro-step-dot"></span>
+                <span data-i18n="cx_167" style="width:88px;">Menyiapkan hasil</span>
+                <span class="kuro-stage-bar"><i id="upload-bar-3"></i></span>
+                <span class="kuro-stage-pct" id="upload-pct-3">0%</span>
+            </div>
+        </div>
+
+        <button type="button" class="kuro-cancel-btn" id="ov-cancel">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            <span data-i18n="cx_168">Batalkan kompres</span>
+        </button>
+    </div>
+
+    <!-- ================= TRANSCODE PROGRESS OVERLAY ================= -->
+    <div class="tc-progress-overlay hidden" id="tc-progressOverlay">
+      <div class="tc-progress-card">
+        <video class="tc-bg-video" id="tc-overlayBgVideo" autoplay loop muted playsinline src="assets/overlay-bg.mp4"></video>
+        <div class="tc-overlay-content">
+          <img src="assets/sinon-notice.jpg" class="tc-overlay-avatar" alt="" onerror="this.style.display='none'">
+          <div class="tc-overlay-status" id="tc-overlayStatus">PROCESSING KURO TRANSCODE...</div>
+          <div class="tc-overlay-sub" id="tc-overlaySub">Harap tunggu, encoder WASM sedang berjalan...</div>
+          <div class="tc-progress-bar-wrap">
+            <div class="tc-progress-bar-fill" id="tc-progressBar"></div>
+          </div>
+          <div class="tc-progress-pct" id="tc-progressPercent">0%</div>
+          <button type="button" class="tc-download-btn hidden" id="tc-dlBtn">📥 DOWNLOAD FILE HASIL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TOAST ================= -->
+    <div id="kuro-toast" class="kuro-toast hidden"><span id="kuro-toast-text"></span></div>
+
+<script src="web-shim.js"></script>
+<script src="encoder/kuroencoder/kuropatcher.js"></script>
+<script src="encoder/ffmpeg/ffmpeg.js"></script>
+<script src="encoder/kuroencoder/compress.js"></script>
+<script src="analyzer.js"></script>
+<script src="tools.js"></script>
+
+<script>
+(function(){
+  function switchTopTab(name){
+    var enc = document.getElementById('tab-encoder');
+    var an = document.getElementById('tab-analyzer');
+    var bEnc = document.getElementById('top-tab-encoder');
+    var bAn = document.getElementById('top-tab-analyzer');
+    if(!enc||!an) return;
+    if(name==='analyzer'){
+      enc.classList.add('hidden'); enc.classList.remove('active');
+      an.classList.remove('hidden'); an.classList.add('active');
+      if(bEnc) bEnc.classList.remove('active');
+      if(bAn) bAn.classList.add('active');
+      if(typeof playSfx==='function') playSfx('check');
+    } else {
+      an.classList.add('hidden'); an.classList.remove('active');
+      enc.classList.remove('hidden'); enc.classList.add('active');
+      if(bAn) bAn.classList.remove('active');
+      if(bEnc) bEnc.classList.add('active');
+    }
+  }
+  document.addEventListener('click', function(e){
+    var t = e.target.closest && e.target.closest('.kuro-top-tab');
+    if(!t) return;
+    switchTopTab(t.getAttribute('data-tab'));
+  });
+})();
+</script>
+</body>
+</html>
