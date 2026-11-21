@@ -120,14 +120,12 @@
                     <div class="toggle-info">
                         <h4 style="color:#c4b5fd;">🔧 KURO TRANSCODE</h4>
                         <p style="font-size:0.8rem; color:#e2e8f0; margin-top:5px; line-height:1.55;">
-                            Mode cepat: <b>HQ Upscale</b>, <b>2x FPS</b>, <b>Patcher</b>, <b>FastStart</b>,
-                            <b>Kompres+FastStart</b>, dan <b>All-In-One</b>. Proses lokal di browser (WASM).
-                            Suara Sinon menyertai setiap tahap.
+                            Pilih video, lalu <b>centang fitur sesukamu</b> (bisa lebih dari satu): <b>HQ Upscale</b>, <b>Kompres</b>, <b>Kuro Patcher</b>, <b>FastStart</b>, dan <b>Multiplier x2 / x4 FPS</b>. Semua diproses sekali jalan di browser (WASM), tanpa upload. Suara Sinon menyertai setiap tahap.
                         </p>
                     </div>
                 </div>
 
-                <div class="card">
+                <div class="card" id="tc-input-card">
                     <div class="card-header">
                         <span class="icon">📥</span>
                         <h3>INPUT VIDEO</h3>
@@ -154,46 +152,86 @@
                     </div>
                 </div>
 
-                <div class="card" style="margin-top:12px;">
-                    <div class="card-header">
-                        <span class="icon">⚙️</span>
-                        <h3>MODE PROCESSING</h3>
+                <div id="tc-options" class="hidden">
+                  <div class="card tc-file-card">
+                    <div class="tc-filebar">
+                      <div class="tc-file-ico">🎞️</div>
+                      <div class="tc-file-meta"><b id="tc-fileName">—</b><span id="tc-fileInfo">—</span></div>
+                      <button type="button" id="tc-fileClear" class="tc-icon-btn" aria-label="Ganti video" title="Ganti video">🗑️</button>
                     </div>
-                    <div style="padding: 4px 2px 8px;">
-                        <label style="display:block; margin-bottom:6px; font-size:0.8rem; color:#94a3b8;">Pilih mode encoder:</label>
-                        <select id="tc-modeSelect" style="width:100%; padding:12px; border-radius:8px; border:1px solid #334155; background:#1e2230; color:#e2e8f0; font-size:0.9rem;">
-                            <option value="hq_upscale">✨ HQ Resolution Upscale (High Quality Scaling)</option>
-                            <option value="fps_2x">🚀 Multiplier 2x FPS (Frame Rate Doubler)</option>
-                            <option value="patch_video">🛠️ Kuro MP4 Patcher (AnnexB / Fix Header)</option>
-                            <option value="optimize_moov">⚡ Optimizer FastStart (MOOV Atom Relocation)</option>
-                            <option value="compress_faststart">🎬 Kompres + FastStart (Web Ready)</option>
-                            <option value="all_in_one" selected>🔥 Kuro All-In-One (HQ + 2x FPS + Patcher + FastStart)</option>
-                        </select>
-                        <label style="display:block; margin:12px 0 6px; font-size:0.8rem; color:#94a3b8;">Target resolusi HQ (mode HQ / All-In-One):</label>
-                        <select id="tc-resolutionTarget" style="width:100%; padding:12px; border-radius:8px; border:1px solid #334155; background:#1e2230; color:#e2e8f0; font-size:0.9rem;">
-                            <option value="original">Tetap resolusi asli</option>
-                            <option value="720">720p HD (1280×720)</option>
-                            <option value="1080" selected>1080p Full HD (1920×1080)</option>
-                            <option value="1440">1440p / 2K QHD (2560×1440)</option>
-                            <option value="2160">4K Ultra HD (3840×2160)</option>
-                            <option value="4320">8K Ultra HD (7680×4320)</option>
-                        </select>
-                        <button type="button" id="tc-processBtn"
-                            style="width:100%; margin-top:12px; padding:14px; border:none; border-radius:10px; background:linear-gradient(135deg,#a78bfa,#7c3aed); color:#fff; font-weight:800; font-size:0.95rem; cursor:pointer; letter-spacing:0.3px;">
-                            PROSES VIDEO SEKARANG
-                        </button>
-                    </div>
-                </div>
+                    <video id="tc-preview" class="tc-preview" controls playsinline preload="metadata"></video>
+                  </div>
 
-                <div class="card" style="margin-top:12px;">
-                    <div class="card-header">
-                        <span class="icon">📋</span>
-                        <h3>PROGRESS &amp; SYSTEM LOG</h3>
+                  <div class="card tc-panel">
+                    <div class="tc-title"><i></i><span data-ti="Mode Processing" data-te="Processing Mode">Mode Processing</span><small data-ti="pilih satu atau lebih" data-te="pick one or more">pilih satu atau lebih</small></div>
+                    <div class="tc-grid tc-feat" id="tc-features">
+          <button type="button" class="tc-opt" data-opt="hq" aria-pressed="false">
+            <span class="tc-ico">✨</span><span class="tc-check">✓</span>
+            <b data-ti="HQ Upscale" data-te="HQ Upscale">HQ Upscale</b>
+            <em data-ti="Naikkan resolusi (lanczos) + CRF 18" data-te="Upscale resolution (lanczos) + CRF 18">Naikkan resolusi (lanczos) + CRF 18</em>
+            <span class="tc-badge">HQ</span>
+          </button>
+          <button type="button" class="tc-opt" data-opt="compress" aria-pressed="false">
+            <span class="tc-ico">🎬</span><span class="tc-check">✓</span>
+            <b data-ti="Kompres Standar" data-te="Standard Compress">Kompres Standar</b>
+            <em data-ti="CRF 23 + AAC 128k, ukuran lebih kecil" data-te="CRF 23 + AAC 128k, smaller size">CRF 23 + AAC 128k, ukuran lebih kecil</em>
+            <span class="tc-badge">SMALL</span>
+          </button>
+          <button type="button" class="tc-opt" data-opt="patch" aria-pressed="false">
+            <span class="tc-ico">🩹</span><span class="tc-check">✓</span>
+            <b data-ti="Kuro Patcher" data-te="Kuro Patcher">Kuro Patcher</b>
+            <em data-ti="Patch metadata MP4, tanpa re-encode" data-te="MP4 metadata patch, no re-encode">Patch metadata MP4, tanpa re-encode</em>
+            <span class="tc-badge">PATCH</span>
+          </button>
+          <button type="button" class="tc-opt" data-opt="faststart" aria-pressed="false">
+            <span class="tc-ico">⚡</span><span class="tc-check">✓</span>
+            <b data-ti="FastStart" data-te="FastStart">FastStart</b>
+            <em data-ti="MOOV dipindah ke depan, siap streaming" data-te="MOOV moved to front, streaming ready">MOOV dipindah ke depan, siap streaming</em>
+            <span class="tc-badge">MOOV</span>
+          </button>
                     </div>
-                    <div id="tc-logBox" style="background:#08090d; border:1px solid #222; border-radius:8px; padding:10px; height:160px; overflow-y:auto; font-family:ui-monospace,monospace; font-size:0.8rem; color:#00ff66; line-height:1.45;">
-                        <div>Sistem siap. Silakan pilih video dan mode Transcode...</div>
+                    <div class="tc-sub hidden" id="tc-res-wrap">
+                      <label data-ti="Target resolusi HQ" data-te="HQ target resolution">Target resolusi HQ</label>
+                      <div class="tc-chips" id="tc-res"><button type="button" class="tc-chip" data-res="original">Asli</button><button type="button" class="tc-chip" data-res="720">720p</button><button type="button" class="tc-chip on" data-res="1080">1080p</button><button type="button" class="tc-chip" data-res="1440">2K</button><button type="button" class="tc-chip" data-res="2160">4K</button><button type="button" class="tc-chip" data-res="4320">8K</button></div>
                     </div>
-                </div>
+
+                    <div class="tc-title"><i></i><span data-ti="Timing Multiplier" data-te="Timing Multiplier">Timing Multiplier</span><small data-ti="FPS asli × pilihanmu" data-te="source FPS × your pick">FPS asli × pilihanmu</small></div>
+                    <div class="tc-grid tc-mult" id="tc-mult">
+                      <button type="button" class="tc-opt" data-mult="2" aria-pressed="false"><span class="tc-check">✓</span><b>x2 Multiplier</b><em id="tc-x2-desc">FPS asli × 2</em><span class="tc-badge" id="tc-x2-badge">×2</span></button>
+                      <button type="button" class="tc-opt" data-mult="4" aria-pressed="false"><span class="tc-check">✓</span><b>x4 Multiplier</b><em id="tc-x4-desc">FPS asli × 4</em><span class="tc-badge" id="tc-x4-badge">×4</span></button>
+                    </div>
+                    <div class="tc-sub hidden" id="tc-method-wrap">
+                      <label for="tc-method" data-ti="Metode pembuatan frame" data-te="Frame generation method">Metode pembuatan frame</label>
+                      <select id="tc-method" class="tc-select">
+                        <option value="dup" data-ti="Duplikasi frame (cepat)" data-te="Frame duplication (fast)">Duplikasi frame (cepat)</option>
+                        <option value="blend" data-ti="Blend frame (lebih halus, sedang)" data-te="Frame blend (smoother, medium)">Blend frame (lebih halus, sedang)</option>
+                        <option value="mci" data-ti="Interpolasi gerak (paling halus, SANGAT lambat)" data-te="Motion interpolation (smoothest, VERY slow)">Interpolasi gerak (paling halus, SANGAT lambat)</option>
+                      </select>
+                    </div>
+
+                    <div class="tc-presets">
+                      <button type="button" id="tc-presetAll" class="tc-ghost">🔥 <span data-ti="All-In-One" data-te="All-In-One">All-In-One</span></button>
+                      <button type="button" id="tc-presetReset" class="tc-ghost">↺ <span data-ti="Reset pilihan" data-te="Clear selection">Reset pilihan</span></button>
+                    </div>
+                    <div class="tc-summary" id="tc-summary"></div>
+                    <div class="tc-warn hidden" id="tc-warn"></div>
+                    <button type="button" id="tc-processBtn" class="tc-start"><span data-ti="Mulai Proses" data-te="Start Processing">Mulai Proses</span> →</button>
+                  </div>
+
+                  <div class="card tc-panel hidden" id="tc-result">
+                    <div class="tc-title"><i></i><span data-ti="✅ Hasil" data-te="✅ Result">✅ Hasil</span></div>
+                    <div class="cmp-info-grid" id="tc-resGrid"></div>
+                    <div class="tc-actions">
+                      <button type="button" id="tc-dlBtn" class="tc-start">⬇️ <span data-ti="Unduh Lagi" data-te="Download Again">Unduh Lagi</span></button>
+                      <button type="button" id="tc-newBtn" class="tc-ghost"><span data-ti="Video baru" data-te="New video">Video baru</span></button>
+                    </div>
+                  </div>
+
+                  <details class="card tc-log">
+                    <summary>📋 <span data-ti="Log sistem" data-te="System log">Log sistem</span></summary>
+                    <div id="tc-logBox"><div>Sistem siap. Pilih video lalu pilih fitur Transcode…</div></div>
+                  </details>
+                </div><!-- /tc-options -->
                 </div><!-- /mode-transcode -->
 
             </div><!-- /tab-encoder -->
@@ -930,22 +968,6 @@
         </button>
     </div>
 
-    <!-- ================= TRANSCODE PROGRESS OVERLAY ================= -->
-    <div class="tc-progress-overlay hidden" id="tc-progressOverlay">
-      <div class="tc-progress-card">
-        <video class="tc-bg-video" id="tc-overlayBgVideo" autoplay loop muted playsinline src="assets/overlay-bg.mp4"></video>
-        <div class="tc-overlay-content">
-          <img src="assets/sinon-notice.jpg" class="tc-overlay-avatar" alt="" onerror="this.style.display='none'">
-          <div class="tc-overlay-status" id="tc-overlayStatus">PROCESSING KURO TRANSCODE...</div>
-          <div class="tc-overlay-sub" id="tc-overlaySub">Harap tunggu, encoder WASM sedang berjalan...</div>
-          <div class="tc-progress-bar-wrap">
-            <div class="tc-progress-bar-fill" id="tc-progressBar"></div>
-          </div>
-          <div class="tc-progress-pct" id="tc-progressPercent">0%</div>
-          <button type="button" class="tc-download-btn hidden" id="tc-dlBtn">📥 DOWNLOAD FILE HASIL</button>
-        </div>
-      </div>
-    </div>
 
     <!-- ================= TOAST ================= -->
     <div id="kuro-toast" class="kuro-toast hidden"><span id="kuro-toast-text"></span></div>
