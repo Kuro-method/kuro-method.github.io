@@ -6,7 +6,13 @@ html{font-size:16px;-webkit-text-size-adjust:100%}
 body{width:100%;max-width:var(--kuro-w);margin:0 auto;min-height:100vh;position:relative}
 @media(min-width:700px){:root{--kuro-w:780px} html{font-size:17.5px}}
 @media(min-width:980px){:root{--kuro-w:960px} html{font-size:19px}}
-.kuro-composer-overlay,.cmp-review-overlay,.kuro-upload-overlay{max-width:var(--kuro-w);margin:0 auto}
+.kuro-composer-overlay,.cmp-review-overlay{max-width:var(--kuro-w);margin:0 auto}
+/* overlay progres: selalu selebar layar penuh (theme-bg halaman tidak kelihatan di sisi), isi diperbesar di mode situs desktop */
+.kuro-upload-overlay{max-width:none;margin:0;left:0;right:0}
+.kuro-upload-overlay>:not(.tc-ov-bg){zoom:var(--ov-zoom,1)}
+.kuro-upload-overlay .kuro-video-stage{max-width:min(100%,calc((100vh - 12.5rem * var(--ov-zoom,1)) * 16 / 9 / var(--ov-zoom,1)))}
+/* teks persen + status di area atas, tidak tertimpa kotak statistik */
+.kuro-upload-overlay.tc-bgmode .kuro-stage-percent{inset:0 0 5.2rem 0}
 .lang-switch{position:absolute;top:8px;right:8px;z-index:50;display:flex;gap:4px}
 .lang-switch .lang-btn{padding:3px 9px;border-radius:999px;border:1px solid rgba(0,255,170,.5);background:rgba(0,0,0,.55);color:#9fb3ad;font:700 .65rem Poppins,sans-serif;cursor:pointer}
 .lang-switch .lang-btn.active{background:rgba(0,255,170,.18);color:#00ffaa}
@@ -220,3 +226,4 @@ html, body {
 .kuro-upload-overlay .tc-ov-bg{display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;pointer-events:none;opacity:.72;filter:brightness(.9) saturate(1.1)}
 .kuro-upload-overlay.tc-bgmode .tc-ov-bg{display:block}
 .kuro-upload-overlay.tc-bgmode::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at center,rgba(2,6,4,.05) 0%,rgba(2,6,4,.42) 70%,rgba(2,6,4,.72) 100%)}
+.kuro-upload-overlay .kuro-stage-steps{max-width:min(100%,50rem)}

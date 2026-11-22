@@ -125,6 +125,15 @@
       if ($('ov-eta')) $('ov-eta').textContent = (sp > 0 && dur > 0 && live.time < dur) ? fmtClock((dur - live.time) / sp) : (ratio >= 1 ? '0s' : '–');
     }
   };
+  function applyOverlayZoom() {
+    var z = 1;
+    try {
+      var iw = window.innerWidth, sw = (window.screen && screen.width) || iw;
+      var coarse = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+      if (coarse && sw > 0 && iw / sw > 1.25) z = Math.min(3.6, (iw / sw) * 0.92);
+    } catch (e) {}
+    document.documentElement.style.setProperty('--ov-zoom', z > 1 ? z.toFixed(2) : '1');
+  }
   function overlayBusy() { var o = $('upload-overlay'); return !!(o && !o.classList.contains('hidden')); }
 
   /* ------------------------------------------------------------ FPS multiplier */
@@ -133,14 +142,23 @@
     for (var i = 0; i < ns.length; i++) if (Math.abs(f - ns[i] * 1000 / 1001) < 0.01) return { expr: (ns[i] * k * 1000) + '/1001', val: f * k };
     var o = f * k; return { expr: String(Math.round(o * 1000) / 1000), val: o };
   }
-  async function probeFps(ff, inN) {
+  async function probeStream(ff, inN) {
     var txt = '', cb = function (e) { if (e && e.message) txt += e.message + '\n'; };
     ff.on('log', cb);
     try { await ff.exec(['-hide_banner', '-i', inN]); } catch (e) {}
     ff.off('log', cb);
-    var m = txt.match(/Video:[^\n]*?(\d+(?:\.\d+)?)\s*fps/) || txt.match(/Video:[^\n]*?(\d+(?:\.\d+)?)\s*tbr/);
-    return m ? parseFloat(m[1]) : 0;
+    var line = (txt.match(/Video:[^\n]*/) || [''])[0];
+    var fm = line.match(/(\d+(?:\.\d+)?)\s*fps/) || line.match(/(\d+(?:\.\d+)?)\s*tbr/);
+    var cm = line.match(/Video:\s*([A-Za-z0-9_]+)/);
+    return { fps: fm ? parseFloat(fm[1]) : 0, codec: cm ? cm[1].toLowerCase() : '' };
   }
+  function codecKey(name) {
+    var n = String(name || '').toLowerCase();
+    if (/264|avc/.test(n)) return 'h264';
+    if (/hevc|265|hvc|hev1/.test(n)) return 'hevc';
+    return n;
+  }
+  function codecLabel(k) { return k === 'h264' ? 'H.264' : k === 'hevc' ? 'HEVC' : (k ? k.toUpperCase() : '?'); }
 
   /* ------------------------------------------------------------ rencana proses */
   function buildPlan() {
@@ -200,7 +218,7 @@
     if (!file) return;
     releaseResult();
     if (S.url) { try { URL.revokeObjectURL(S.url); } catch (e) {} }
-    S.file = file; S.fps = 0; S.duration = 0; S.meta = null; S.url = URL.createObjectURL(file);
+    S.file = file; S.fps = 0; S.duration = 0; S.meta = null; S.vcodec = ''; S.url = URL.createObjectURL(file);
     $('tc-preview').src = S.url;
     $('tc-fileName').textContent = file.name; $('tc-fileInfo').textContent = fmtSize(file.size);
     $('tc-input-card').classList.add('hidden'); $('tc-options').classList.remove('hidden');
@@ -210,10 +228,11 @@
       if (window.KuroMp4 && typeof KuroMp4.inspect === 'function') {
         KuroMp4.inspect(file).then(function (m) {
           if (S.file !== file || !m) return;
-          S.meta = m; var v = m.video || {}; S.fps = v.fps || 0; S.duration = v.durationSec || 0;
+          S.meta = m; var v = m.video || {}; S.fps = v.fps || 0; S.duration = v.durationSec || 0; S.vcodec = v.codec || '';
           var bits = [fmtSize(file.size)];
           if (v.width && v.height) bits.push(v.width + '×' + v.height);
           if (S.fps) bits.push(fmtFps(S.fps) + ' fps');
+          if (v.codec) bits.push(v.codec);
           if (S.duration) bits.push(fmtClock(S.duration));
           $('tc-fileInfo').textContent = bits.join(' · ');
           render();
@@ -226,7 +245,7 @@
     if (S.running) return;
     releaseResult();
     if (S.url) { try { URL.revokeObjectURL(S.url); } catch (e) {} }
-    S.url = ''; S.file = null; S.fps = 0; S.duration = 0; S.meta = null;
+    S.url = ''; S.file = null; S.fps = 0; S.duration = 0; S.meta = null; S.vcodec = '';
     try { $('tc-preview').removeAttribute('src'); $('tc-preview').load(); } catch (e) {}
     try { $('tc-videoInput').value = ''; } catch (e) {}
     $('tc-options').classList.add('hidden'); $('tc-input-card').classList.remove('hidden');
@@ -264,7 +283,7 @@
       await ff.writeFile(inN, data); data = null;
       OV.stage(1, 100, L('File siap', 'File ready'));
       var args = await argsFn(ff, inN, outN, ext);
-      log(L('Menjalankan FFmpeg: ', 'Running FFmpeg: ') + esc(args.join(' ')));
+      log(L('Menjalankan FFmpeg: ', 'Running FFmpeg: ') + esc(args.join(' ').replace(' -preset veryfast', '')));
       startedAt = performance.now(); OV.stage(2, 1, L('Memproses…', 'Processing…'));
       var code = await ff.exec(args);
       if (code !== 0 && code !== undefined) throw new Error('FFmpeg exit ' + code + (lastErr ? ' — ' + lastErr : ''));
@@ -278,9 +297,16 @@
 
   function encodeArgs(plan, ctx, info) {
     return async function (ff, inN, outN, ext) {
-      var f = S.fps;
-      if (plan.mult && !f) { OV.overall(L('Membaca FPS…', 'Reading FPS…')); f = await probeFps(ff, inN); }
+      var f = S.fps, ck = codecKey(S.vcodec);
+      if ((plan.mult && !f) || !ck) {
+        OV.overall(L('Membaca info video…', 'Reading video info…'));
+        var pr = await probeStream(ff, inN);
+        if (!f) f = pr.fps; if (!ck) ck = codecKey(pr.codec);
+      }
       if (plan.mult && !f) throw new Error(L('FPS video tidak bisa dideteksi.', 'Could not detect the video FPS.'));
+      /* codec output = codec input (H.264 -> libx264, HEVC -> libx265); codec lain (VP9/AV1/dll) -> H.264 agar aman di MP4 */
+      var enc = ck === 'hevc' ? 'libx265' : 'libx264';
+      info.codec = [codecLabel(ck), enc === 'libx265' ? 'HEVC' : 'H.264'];
       var vf = [];
       if (plan.mult) {
         var d = mulFps(f, plan.mult); info.fps = [f, d.val];
@@ -289,8 +315,10 @@
       }
       if (plan.scale) vf.push('scale=-2:' + plan.scale + ':flags=lanczos');
       vf.push('format=yuv420p');
-      var crf = plan.compress ? 23 : (plan.hq ? 18 : 20), preset = plan.hq ? 'medium' : 'faster';
-      var a = ['-hide_banner', '-y', '-i', inN, '-map', '0:v:0', '-map', '0:a:0?', '-vf', vf.join(','), '-c:v', 'libx264', '-preset', preset, '-crf', String(crf), '-pix_fmt', 'yuv420p'];
+      var crf = plan.compress ? 23 : (plan.hq ? 18 : 20);
+      if (enc === 'libx265') crf += 5;            /* skala CRF x265 ~ +5 dari x264 untuk kualitas setara */
+      var a = ['-hide_banner', '-y', '-i', inN, '-map', '0:v:0', '-map', '0:a:0?', '-vf', vf.join(','), '-c:v', enc, '-preset', 'veryfast', '-crf', String(crf), '-pix_fmt', 'yuv420p'];
+      if (enc === 'libx265') a.push('-tag:v', 'hvc1', '-x265-params', 'log-level=error');
       if (plan.compress || !/^(mp4|mov|m4v|3gp)$/.test(ext)) a.push('-c:a', 'aac', '-b:a', plan.compress ? '128k' : '192k'); else a.push('-c:a', 'copy');
       if (plan.faststart) a.push('-movflags', '+faststart');
       a.push('-metadata', 'encoder=KuroPatcherTranscode', '-progress', 'pipe:1', '-stats_period', '0.4', outN);
@@ -325,6 +353,7 @@
     if (plan.encode) {
       log(L('Transcode: ', 'Transcode: ') + esc(planText(plan)));
       bytes = await ffmpegRun(file, ctx, encodeArgs(plan, ctx, info));
+      if (info.codec) rows.push(['Codec', info.codec[0] === info.codec[1] ? info.codec[1] + ' (' + L('sama dengan input', 'same as input') + ')' : info.codec[0] + ' → ' + info.codec[1] + ' (MP4)']);
       if (info.fps) rows.push(['FPS', fmtFps(info.fps[0]) + ' → ' + fmtFps(info.fps[1]) + '  (×' + plan.mult + ')']);
     } else if (plan.patch) {
       OV.stage(1, 20, L('Membaca file…', 'Reading file…'));
@@ -360,7 +389,7 @@
     S.running = true; render(); releaseResult();
     playTcSfx('start');
     log(L('Memulai Kuro Transcode: ', 'Starting Kuro Transcode: ') + '<b>' + esc(planText(plan)) + '</b>');
-    OV.show(file, S.url);
+    applyOverlayZoom(); OV.show(file, S.url);
     var cancelP = new Promise(function (_, rej) { S.cancel = function () { cancelled = true; rej(new Error('__cancelled__')); }; });
     try {
       var job = pipeline(file, plan, rows); job.catch(function () {});
@@ -457,6 +486,7 @@
       drop.addEventListener('drop', function (e) { var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) setFile(f); });
       inp.addEventListener('change', function () { if (inp.files && inp.files[0]) setFile(inp.files[0]); });
     }
+    applyOverlayZoom(); window.addEventListener('resize', applyOverlayZoom); window.addEventListener('orientationchange', applyOverlayZoom);
     refreshText(); render();
     document.addEventListener('kuro-lang-changed', function () { refreshText(); render(); });
     switchEncoderMode('kompres');
