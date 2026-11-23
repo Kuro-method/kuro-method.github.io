@@ -25,7 +25,7 @@
       </div>
       <div class="kuro-notice-desc">
         Web app ini berjalan offline via <b>WebAssembly (WASM)</b> di browser.
-        Fitur: <b>Kompres Video</b>, <b>Kuro Transcode</b> (HQ Upscale, 2x FPS, Patcher, FastStart, All-In-One),
+        Fitur: <b>Kompres Video</b>, <b>Kuro Transcode</b> (HQ Upscale, 2x FPS, Optimizer, Patcher, FastStart, All-In-One),
         dan <b>TikTok Analyzer V1/V2</b>. Tanpa upload ke server.
       </div>
       <div class="kuro-notice-social">
@@ -120,7 +120,7 @@
                     <div class="toggle-info">
                         <h4 style="color:#c4b5fd;">🔧 KURO TRANSCODE</h4>
                         <p style="font-size:0.8rem; color:#e2e8f0; margin-top:5px; line-height:1.55;">
-                            Pilih video, lalu <b>centang fitur sesukamu</b> (bisa lebih dari satu): <b>HQ Upscale</b>, <b>Kompres</b>, <b>Kuro Patcher</b>, <b>FastStart</b>, dan <b>Multiplier x2 / x4 FPS</b>. Semua diproses sekali jalan di browser (WASM), tanpa upload. Suara Sinon menyertai setiap tahap.
+                            Pilih video, lalu <b>centang fitur sesukamu</b> (bisa lebih dari satu): <b>HQ Upscale</b>, <b>Kompres</b>, <b>Video Optimizer</b>, pilihan <b>H.264 High / H.265 Main</b> (lengkap dengan estimasi ukuran hasil), <b>Kuro Patcher</b>, <b>FastStart</b>, dan <b>Multiplier x2 / x4 FPS</b>. Metadata <b>Description</b> hasil otomatis <b>KuroPatcher</b>. Semua diproses sekali jalan di browser (WASM), tanpa upload. Suara Sinon menyertai setiap tahap.
                         </p>
                     </div>
                 </div>
@@ -177,6 +177,12 @@
             <em data-ti="CRF 23 + AAC 128k, ukuran lebih kecil" data-te="CRF 23 + AAC 128k, smaller size">CRF 23 + AAC 128k, ukuran lebih kecil</em>
             <span class="tc-badge">SMALL</span>
           </button>
+          <button type="button" class="tc-opt" data-opt="optimize" aria-pressed="false">
+            <span class="tc-ico">🚀</span><span class="tc-check">✓</span>
+            <b data-ti="Video Optimizer" data-te="Video Optimizer">Video Optimizer</b>
+            <em data-ti="Encode efisien (CRF 21, High profile, AQ, keyframe 2 dtk) + FastStart" data-te="Efficient encode (CRF 21, High profile, AQ, 2s keyframes) + FastStart">Encode efisien (CRF 21, High profile, AQ, keyframe 2 dtk) + FastStart</em>
+            <span class="tc-badge">OPT</span>
+          </button>
           <button type="button" class="tc-opt" data-opt="patch" aria-pressed="false">
             <span class="tc-ico">🩹</span><span class="tc-check">✓</span>
             <b data-ti="Kuro Patcher" data-te="Kuro Patcher">Kuro Patcher</b>
@@ -193,6 +199,13 @@
                     <div class="tc-sub hidden" id="tc-res-wrap">
                       <label data-ti="Target resolusi HQ" data-te="HQ target resolution">Target resolusi HQ</label>
                       <div class="tc-chips" id="tc-res"><button type="button" class="tc-chip" data-res="original">Asli</button><button type="button" class="tc-chip" data-res="720">720p</button><button type="button" class="tc-chip on" data-res="1080">1080p</button><button type="button" class="tc-chip" data-res="1440">2K</button><button type="button" class="tc-chip" data-res="2160">4K</button><button type="button" class="tc-chip" data-res="4320">8K</button></div>
+                    </div>
+
+                    <div class="tc-title"><i></i><span data-ti="Codec Output" data-te="Output Codec">Codec Output</span><small data-ti="estimasi ukuran hasil" data-te="estimated output size">estimasi ukuran hasil</small></div>
+                    <div class="tc-grid tc-codecs" id="tc-codec">
+                      <button type="button" class="tc-opt" data-codec="auto" aria-pressed="false"><span class="tc-check">✓</span><b data-ti="Otomatis" data-te="Auto">Otomatis</b><em data-ti="Sama dengan video asli" data-te="Same as source">Sama dengan video asli</em><span class="tc-badge" id="tc-est-auto">–</span></button>
+                      <button type="button" class="tc-opt" data-codec="h264" aria-pressed="false"><span class="tc-check">✓</span><b>H.264 High</b><em data-ti="Paling kompatibel" data-te="Most compatible">Paling kompatibel</em><span class="tc-badge" id="tc-est-h264">–</span></button>
+                      <button type="button" class="tc-opt" data-codec="hevc" aria-pressed="false"><span class="tc-check">✓</span><b>H.265 Main</b><em data-ti="Lebih kecil, lebih lambat" data-te="Smaller, slower">Lebih kecil, lebih lambat</em><span class="tc-badge" id="tc-est-hevc">–</span></button>
                     </div>
 
                     <div class="tc-title"><i></i><span data-ti="Timing Multiplier" data-te="Timing Multiplier">Timing Multiplier</span><small data-ti="FPS asli × pilihanmu" data-te="source FPS × your pick">FPS asli × pilihanmu</small></div>
@@ -212,6 +225,12 @@
                     <div class="tc-presets">
                       <button type="button" id="tc-presetAll" class="tc-ghost">🔥 <span data-ti="All-In-One" data-te="All-In-One">All-In-One</span></button>
                       <button type="button" id="tc-presetReset" class="tc-ghost">↺ <span data-ti="Reset pilihan" data-te="Clear selection">Reset pilihan</span></button>
+                    </div>
+                    <div class="tc-estimate" id="tc-estimate">
+                      <div class="tc-est-top"><span data-ti="Estimasi ukuran hasil" data-te="Estimated output size">Estimasi ukuran hasil</span><b id="tc-est-size">–</b></div>
+                      <div class="tc-est-bar"><i id="tc-est-fill"></i></div>
+                      <div class="tc-est-sub" id="tc-est-sub">–</div>
+                      <div class="tc-est-note" data-ti="Perkiraan kasar — hasil asli bergantung pada isi video." data-te="Rough estimate — the real result depends on the video content.">Perkiraan kasar — hasil asli bergantung pada isi video.</div>
                     </div>
                     <div class="tc-summary" id="tc-summary"></div>
                     <div class="tc-warn hidden" id="tc-warn"></div>

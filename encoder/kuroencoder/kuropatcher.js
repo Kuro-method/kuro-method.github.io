@@ -1100,6 +1100,7 @@
 const KuroFastStartEngine = (function () {
   const CONTAINERS = new Set(['moov', 'trak', 'mdia', 'minf', 'stbl', 'edts', 'dinf', 'udta', 'ilst']);
   const TAG_TEXT = 'KuroUploadersHD+++';
+  const DESC_TEXT = 'KuroPatcher'; // tampil sebagai "Description" di MX Player (atom desc + \u00a9cmt)
   const MOVIE_TIMESCALE = 1000;
   // Pola filler AAC (16 byte) untuk menimpa sample audio paling akhir; panjang tiap sample asli dipertahankan.
   const AUDIO_TAIL_FILLER = Uint8Array.from([
@@ -1334,7 +1335,11 @@ const KuroFastStartEngine = (function () {
   function makeUdtaBox(tagText) {
     const hdlrPayload = new Uint8Array(20); hdlrPayload.set(new TextEncoder().encode('mdir'), 8);
     const hdlr = box('hdlr', hdlrPayload);
-    const ilst = box('ilst', box('\u00a9too', makeDataAtom(tagText)));
+    const ilst = box('ilst', concat([
+      box('\u00a9too', makeDataAtom(tagText)),
+      box('desc', makeDataAtom(DESC_TEXT)),
+      box('\u00a9cmt', makeDataAtom(DESC_TEXT))
+    ]));
     const meta = box('meta', concat([new Uint8Array(4), hdlr, ilst]));
     return box('udta', meta);
   }

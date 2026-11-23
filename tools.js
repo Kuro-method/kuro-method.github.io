@@ -56,10 +56,11 @@
   /* ------------------------------------------------------------ state */
   var S = {
     file: null, url: '', fps: 0, duration: 0,
-    opts: { hq: false, compress: false, patch: true, faststart: true },
-    res: '1080', mult: 0, method: 'dup',
+    opts: { hq: false, compress: false, optimize: false, patch: true, faststart: true },
+    res: '1080', mult: 0, method: 'dup', codec: 'auto', pw: 0, ph: 0,
     running: false, cancel: null, blobUrl: '', outName: ''
   };
+  var META_DESC = 'KuroPatcher';   /* tag Description (terbaca di MX Player) */
   var RES_LABEL = { original: 'asli', '720': '720p', '1080': '1080p', '1440': '2K', '2160': '4K', '4320': '8K' };
 
   /* ------------------------------------------------------------ overlay progres (ekstensi) */
@@ -162,26 +163,90 @@
 
   /* ------------------------------------------------------------ rencana proses */
   function buildPlan() {
-    var o = S.opts, p = { hq: o.hq, compress: o.compress, patch: o.patch, faststart: o.faststart, mult: S.mult, method: S.method };
+    var o = S.opts, p = { codec: S.codec === 'auto' ? null : S.codec, hq: o.hq, compress: o.compress, optimize: !!o.optimize, patch: o.patch, faststart: o.faststart, mult: S.mult, method: S.method };
     p.scale = (o.hq && S.res !== 'original') ? S.res : null;
-    p.encode = !!(o.hq || o.compress || S.mult);
-    p.count = (o.hq ? 1 : 0) + (o.compress ? 1 : 0) + (o.patch ? 1 : 0) + (o.faststart ? 1 : 0) + (S.mult ? 1 : 0);
+    p.encode = !!(o.hq || o.compress || o.optimize || S.mult || p.codec);
+    p.count = (p.codec ? 1 : 0) + (o.hq ? 1 : 0) + (o.compress ? 1 : 0) + (o.optimize ? 1 : 0) + (o.patch ? 1 : 0) + (o.faststart ? 1 : 0) + (S.mult ? 1 : 0);
     return p;
   }
   function planText(p) {
     var a = [];
     if (p.mult) a.push(L('Multiplier x', 'Multiplier x') + p.mult + (S.fps ? ' (' + fmtFps(S.fps) + '→' + fmtFps(S.fps * p.mult) + ' fps)' : ''));
+    if (p.codec) a.push(p.codec === 'hevc' ? 'H.265 Main' : 'H.264 High');
     if (p.hq) a.push('HQ Upscale' + (p.scale ? ' ' + RES_LABEL[p.scale] : ' (' + L('resolusi asli', 'original res') + ')'));
     if (p.compress) a.push(L('Kompres', 'Compress'));
+    if (p.optimize) a.push('Optimizer');
     if (p.faststart) a.push('FastStart');
     if (p.patch) a.push('Kuro Patcher');
     return a.join(' → ');
   }
   function tagText(p) {
     var t = [];
-    if (p.hq) t.push('hq'); if (p.compress) t.push('cmp'); if (p.mult) t.push('x' + p.mult);
+    if (p.codec) t.push(p.codec === 'hevc' ? 'h265' : 'h264');
+    if (p.hq) t.push('hq'); if (p.compress) t.push('cmp'); if (p.optimize) t.push('opt'); if (p.mult) t.push('x' + p.mult);
     if (p.faststart) t.push('fs'); if (p.patch) t.push('patch');
     return t.join('-') || 'out';
+  }
+
+
+  /* ------------------------------------------------------------ estimasi ukuran hasil */
+  function baseCrf(plan) { return plan.compress ? 23 : (plan.hq ? 18 : (plan.optimize ? 21 : 20)); }
+  function srcDims() {
+    var v = (S.meta && S.meta.video) || {};
+    return { w: v.width || S.pw || 0, h: v.height || S.ph || 0 };
+  }
+  /* codecOverride: 'h264' | 'hevc' | undefined (pakai pilihan/otomatis). Mengembalikan {mid, low, high, exact, br, ...} atau null */
+  function estimateSize(plan, codecOverride) {
+    if (!S.file) return null;
+    var size = S.file.size, dur = S.duration || 0;
+    if (!plan.encode) return { mid: size, low: size, high: size, exact: true, same: true };
+    if (!(dur > 0)) return null;
+    var sk = codecKey(S.vcodec) || 'h264';
+    var outK = codecOverride || plan.codec || (sk === 'hevc' ? 'hevc' : 'h264');
+    var d = srcDims(), fpsIn = S.fps || 30, fpsOut = fpsIn * (plan.mult || 1);
+    var wIn = d.w || 1280, hIn = d.h || 720;
+    var hOut = plan.scale ? parseInt(plan.scale, 10) : hIn;
+    var wOut = Math.round(wIn * hOut / hIn / 2) * 2; hOut = Math.round(hOut / 2) * 2;
+    var pixOut = wOut * hOut, pixIn = wIn * hIn;
+    var q = baseCrf(plan);                                  /* skala x264; x265 sudah +5 di encoder */
+    var model = pixOut * 30 * 0.085 * Math.pow(fpsOut / 30, 0.75) * Math.pow(2, (23 - q) / 6);
+    if (outK === 'hevc') model *= 0.62;
+    var hasAudio = !S.meta || !!S.meta.audio;
+    var ext = getExt(S.file.name);
+    var audioBr = !hasAudio ? 0 : plan.compress ? 128000 : (/^(mp4|mov|m4v|3gp)$/.test(ext) ? 128000 : 192000);
+    var srcVideoBr = Math.max(0, size * 8 / dur - (hasAudio ? 128000 : 0));
+    var vbr = model, fromSrc = false;
+    if (srcVideoBr > 0) {
+      var cf = sk === outK ? 1 : (outK === 'hevc' ? (sk === 'h264' ? 0.65 : 0.85) : (sk === 'hevc' ? 1.5 : 1.2));
+      var srcRef = srcVideoBr * (pixOut / pixIn) * Math.pow(fpsOut / fpsIn, 0.6) * cf * Math.pow(2, (20 - q) / 6);
+      if (srcRef * 1.15 < model) { vbr = srcRef * 1.15; fromSrc = true; }
+    }
+    var mid = (vbr + audioBr) * dur / 8 * 1.01;
+    return { mid: mid, low: mid * (fromSrc ? 0.75 : 0.75), high: mid * (fromSrc ? 1.2 : 1.6), exact: false,
+             br: mid * 8 / dur, w: wOut, h: hOut, fps: fpsOut, codec: outK };
+  }
+  function renderEstimate(p) {
+    var box = $('tc-estimate'); if (!box) return;
+    ['auto', 'h264', 'hevc'].forEach(function (k) {
+      var el = $('tc-est-' + k); if (!el) return;
+      var e = estimateSize(p, k === 'auto' ? undefined : k);
+      el.textContent = e ? '≈ ' + fmtMB(e.mid) : (S.file ? '…' : '–');
+    });
+    var e = estimateSize(p), sz = S.file ? S.file.size : 0;
+    if (!e) { $('tc-est-size').textContent = '…'; $('tc-est-fill').style.width = '0%'; $('tc-est-sub').textContent = L('Menunggu info durasi video…', 'Waiting for video duration…'); return; }
+    $('tc-est-size').textContent = e.exact ? fmtMB(e.mid) : '≈ ' + fmtMB(e.mid);
+    var ratio = sz > 0 ? e.mid / sz : 0;
+    var fill = $('tc-est-fill'); fill.style.width = Math.max(4, Math.min(100, ratio * 100)) + '%'; fill.classList.toggle('over', ratio > 1);
+    var bits = [];
+    if (e.exact) bits.push(L('Tanpa re-encode — ukuran ≈ sama dengan aslinya', 'No re-encode — size ≈ same as the source'));
+    else {
+      bits.push(L('Kisaran ', 'Range ') + fmtMB(e.low) + ' – ' + fmtMB(e.high));
+      bits.push(L('Asli ', 'Source ') + fmtMB(sz));
+      var pct = Math.round((1 - ratio) * 100);
+      bits.push(pct >= 0 ? L('hemat ~', 'saves ~') + pct + '%' : L('lebih besar ~', 'larger by ~') + Math.abs(pct) + '%');
+      bits.push(e.w + '×' + e.h + ' · ' + fmtFps(e.fps) + ' fps · ' + (e.br / 1e6).toFixed(1) + ' Mbps');
+    }
+    $('tc-est-sub').textContent = bits.join(' · ');
   }
 
   /* ------------------------------------------------------------ render opsi */
@@ -192,6 +257,9 @@
     });
     document.querySelectorAll('#tc-mult .tc-opt').forEach(function (b) {
       var on = S.mult === parseInt(b.getAttribute('data-mult'), 10); b.classList.toggle('selected', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('#tc-codec .tc-opt').forEach(function (b) {
+      var on = S.codec === b.getAttribute('data-codec'); b.classList.toggle('selected', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     document.querySelectorAll('#tc-res .tc-chip').forEach(function (c) { c.classList.toggle('on', c.getAttribute('data-res') === S.res); });
     $('tc-res-wrap').classList.toggle('hidden', !S.opts.hq);
@@ -205,8 +273,10 @@
     if (p.scale === '4320' || p.scale === '2160') warn.push(L('Upscale 4K/8K sangat berat untuk browser — butuh RAM besar dan waktu lama.', '4K/8K upscaling is very heavy for a browser — needs lots of RAM and time.'));
     if (p.mult && p.method === 'mci') warn.push(L('Interpolasi gerak SANGAT lambat di WASM; pakai video pendek.', 'Motion interpolation is VERY slow in WASM; use short videos.'));
     if (p.patch && !p.encode && S.meta && S.meta.container && !S.meta.isMp4Family) warn.push(L('Bukan MP4/MOV — Patcher akan remux ke MP4 dulu.', 'Not MP4/MOV — Patcher will remux to MP4 first.'));
+    if (p.codec === 'hevc') warn.push(L('H.265 lebih kecil, tapi sebagian HP/pemutar lama & browser tidak bisa memutarnya, dan encoding x265 di WASM jauh lebih lambat.', 'H.265 is smaller, but some older phones/players/browsers cannot play it, and x265 encoding in WASM is much slower.'));
     $('tc-warn').innerHTML = warn.map(esc).join('<br>'); $('tc-warn').classList.toggle('hidden', !warn.length);
     $('tc-processBtn').disabled = !p.count || S.running;
+    renderEstimate(p);
   }
 
   /* ------------------------------------------------------------ file */
@@ -218,7 +288,7 @@
     if (!file) return;
     releaseResult();
     if (S.url) { try { URL.revokeObjectURL(S.url); } catch (e) {} }
-    S.file = file; S.fps = 0; S.duration = 0; S.meta = null; S.vcodec = ''; S.url = URL.createObjectURL(file);
+    S.file = file; S.fps = 0; S.duration = 0; S.meta = null; S.vcodec = ''; S.pw = 0; S.ph = 0; S.url = URL.createObjectURL(file);
     $('tc-preview').src = S.url;
     $('tc-fileName').textContent = file.name; $('tc-fileInfo').textContent = fmtSize(file.size);
     $('tc-input-card').classList.add('hidden'); $('tc-options').classList.remove('hidden');
@@ -245,7 +315,7 @@
     if (S.running) return;
     releaseResult();
     if (S.url) { try { URL.revokeObjectURL(S.url); } catch (e) {} }
-    S.url = ''; S.file = null; S.fps = 0; S.duration = 0; S.meta = null; S.vcodec = '';
+    S.url = ''; S.file = null; S.fps = 0; S.duration = 0; S.meta = null; S.vcodec = ''; S.pw = 0; S.ph = 0;
     try { $('tc-preview').removeAttribute('src'); $('tc-preview').load(); } catch (e) {}
     try { $('tc-videoInput').value = ''; } catch (e) {}
     $('tc-options').classList.add('hidden'); $('tc-input-card').classList.remove('hidden');
@@ -305,8 +375,9 @@
       }
       if (plan.mult && !f) throw new Error(L('FPS video tidak bisa dideteksi.', 'Could not detect the video FPS.'));
       /* codec output = codec input (H.264 -> libx264, HEVC -> libx265); codec lain (VP9/AV1/dll) -> H.264 agar aman di MP4 */
-      var enc = ck === 'hevc' ? 'libx265' : 'libx264';
-      info.codec = [codecLabel(ck), enc === 'libx265' ? 'HEVC' : 'H.264'];
+      var enc = plan.codec ? (plan.codec === 'hevc' ? 'libx265' : 'libx264') : (ck === 'hevc' ? 'libx265' : 'libx264');
+      info.codec = [codecLabel(ck), enc === 'libx265' ? 'H.265 Main' : 'H.264 High'];
+      info.same = ck === (enc === 'libx265' ? 'hevc' : 'h264');
       var vf = [];
       if (plan.mult) {
         var d = mulFps(f, plan.mult); info.fps = [f, d.val];
@@ -314,13 +385,24 @@
           : plan.method === 'blend' ? 'framerate=fps=' + d.expr : 'fps=fps=' + d.expr);
       }
       if (plan.scale) vf.push('scale=-2:' + plan.scale + ':flags=lanczos');
+      else if (plan.optimize) vf.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');   /* dimensi genap: wajib untuk yuv420p */
+      if (plan.optimize) vf.push('setsar=1');
       vf.push('format=yuv420p');
-      var crf = plan.compress ? 23 : (plan.hq ? 18 : 20);
+      var crf = baseCrf(plan);
       if (enc === 'libx265') crf += 5;            /* skala CRF x265 ~ +5 dari x264 untuk kualitas setara */
-      var a = ['-hide_banner', '-y', '-i', inN, '-map', '0:v:0', '-map', '0:a:0?', '-vf', vf.join(','), '-c:v', enc, '-preset', 'veryfast', '-crf', String(crf), '-pix_fmt', 'yuv420p'];
-      if (enc === 'libx265') a.push('-tag:v', 'hvc1', '-x265-params', 'log-level=error');
+      var a = ['-hide_banner', '-y', '-i', inN, '-map', '0:v:0', '-map', '0:a:0?', '-vf', vf.join(','), '-c:v', enc, '-preset', (enc === 'libx264' && plan.optimize) ? 'faster' : 'veryfast',   /* Optimizer: x264 = faster, x265 = veryfast */ '-crf', String(crf), '-pix_fmt', 'yuv420p'];
+      if (enc === 'libx265') a.push('-tag:v', 'hvc1', '-x265-params', 'log-level=error:profile=main' + (plan.optimize ? ':aq-mode=3:rc-lookahead=30:deblock=1,1' : ''));
+      else a.push('-profile:v', 'high');
+      if (plan.optimize) {
+        /* Optimizer (H.264 High = preset faster, H.265 Main = preset veryfast): AQ adaptif, lookahead, keyframe tiap ~2 detik (seek cepat), buang chapter/stream ekstra */
+        if (enc === 'libx264') a.push('-x264-params', 'aq-mode=3:rc-lookahead=30:deblock=1,1');
+        var outFps = f ? (plan.mult ? f * plan.mult : f) : 0;
+        if (outFps > 0) a.push('-g', String(Math.max(12, Math.round(outFps * 2))));
+        a.push('-map_chapters', '-1');
+      }
       if (plan.compress || !/^(mp4|mov|m4v|3gp)$/.test(ext)) a.push('-c:a', 'aac', '-b:a', plan.compress ? '128k' : '192k'); else a.push('-c:a', 'copy');
-      if (plan.faststart) a.push('-movflags', '+faststart');
+      if (plan.faststart || plan.optimize) a.push('-movflags', '+faststart');
+      a.push('-metadata', 'description=' + META_DESC, '-metadata', 'comment=' + META_DESC);
       a.push('-metadata', 'encoder=KuroPatcherTranscode', '-progress', 'pipe:1', '-stats_period', '0.4', outN);
       return a;
     };
@@ -329,6 +411,7 @@
     return async function (ff, inN, outN) {
       var a = ['-hide_banner', '-y', '-i', inN, '-map', '0:v:0', '-map', '0:a:0?', '-c', 'copy', '-map_metadata', '0'];
       if (plan.faststart) a.push('-movflags', '+faststart');
+      a.push('-metadata', 'description=' + META_DESC, '-metadata', 'comment=' + META_DESC);
       a.push('-progress', 'pipe:1', '-stats_period', '0.4', outN); return a;
     };
   }
@@ -353,7 +436,25 @@
     if (plan.encode) {
       log(L('Transcode: ', 'Transcode: ') + esc(planText(plan)));
       bytes = await ffmpegRun(file, ctx, encodeArgs(plan, ctx, info));
-      if (info.codec) rows.push(['Codec', info.codec[0] === info.codec[1] ? info.codec[1] + ' (' + L('sama dengan input', 'same as input') + ')' : info.codec[0] + ' → ' + info.codec[1] + ' (MP4)']);
+      if (plan.optimize) {
+        var before = file.size, after = bytes.length;
+        if (!plan.hq && !plan.mult && !plan.compress && after >= before) {
+          /* Optimizer-saja: kalau hasil encode malah lebih besar, pakai remux (copy stream) agar tidak rugi */
+          log(L('Optimizer: hasil encode lebih besar dari aslinya — pakai remux tanpa re-encode.', 'Optimizer: encoded result is larger than the source — using a stream-copy remux instead.'));
+          try {
+            bytes = await ffmpegRun(file, { duration: S.duration || 0 }, remuxArgs({ faststart: true }));
+            rows.push(['Optimizer', L('Sudah efisien — remux + FastStart (tanpa re-encode)', 'Already efficient — remux + FastStart (no re-encode)')]);
+          } catch (e) {
+            log(L('Remux gagal, pakai hasil encode.', 'Remux failed, keeping the encoded result.') + ' ' + esc(e && e.message || ''));
+            rows.push(['Optimizer', fmtSize(before) + ' → ' + fmtSize(after)]);
+          }
+        } else {
+          var pct = before > 0 ? Math.round((1 - after / before) * 100) : 0;
+          rows.push(['Optimizer', fmtSize(before) + ' → ' + fmtSize(after) + (pct > 0 ? '  (−' + pct + '%)' : pct < 0 ? '  (+' + Math.abs(pct) + '%)' : '')]);
+        }
+      }
+      if (info.codec) rows.push(['Codec', info.same ? info.codec[1] + ' (' + L('sama dengan input', 'same as input') + ')' : info.codec[0] + ' → ' + info.codec[1] + ' (MP4)']);
+      rows.push([L('Metadata', 'Metadata'), 'Description: ' + META_DESC]);
       if (info.fps) rows.push(['FPS', fmtFps(info.fps[0]) + ' → ' + fmtFps(info.fps[1]) + '  (×' + plan.mult + ')']);
     } else if (plan.patch) {
       OV.stage(1, 20, L('Membaca file…', 'Reading file…'));
@@ -463,15 +564,24 @@
         var k = parseInt(b.getAttribute('data-mult'), 10); S.mult = (S.mult === k) ? 0 : k; playTcSfx('game'); render();
       });
     });
+    document.querySelectorAll('#tc-codec .tc-opt').forEach(function (b) {
+      b.addEventListener('click', function () { S.codec = b.getAttribute('data-codec'); playTcSfx('game'); render(); });
+    });
+    var pv = $('tc-preview');
+    if (pv) pv.addEventListener('loadedmetadata', function () {
+      if (pv.videoWidth) { S.pw = pv.videoWidth; S.ph = pv.videoHeight; }
+      if (!S.duration && isFinite(pv.duration) && pv.duration > 0) S.duration = pv.duration;
+      render();
+    });
     document.querySelectorAll('#tc-res .tc-chip').forEach(function (c) {
       c.addEventListener('click', function () { S.res = c.getAttribute('data-res'); playTcSfx('game'); render(); });
     });
     $('tc-method').addEventListener('change', function (e) { S.method = e.target.value; playTcSfx('game'); render(); });
     $('tc-presetAll').addEventListener('click', function () {
-      S.opts = { hq: true, compress: false, patch: true, faststart: true }; S.res = '1080'; S.mult = 2; playTcSfx('huwaw'); render();
+      S.opts = { hq: true, compress: false, optimize: true, patch: true, faststart: true }; S.res = '1080'; S.mult = 2; playTcSfx('huwaw'); render();
     });
     $('tc-presetReset').addEventListener('click', function () {
-      S.opts = { hq: false, compress: false, patch: false, faststart: false }; S.mult = 0; playTcSfx('game'); render();
+      S.opts = { hq: false, compress: false, optimize: false, patch: false, faststart: false }; S.mult = 0; S.codec = 'auto'; playTcSfx('game'); render();
     });
     $('tc-processBtn').addEventListener('click', runTranscode);
     $('tc-dlBtn').addEventListener('click', function () { download(); playTcSfx('arigatou'); });

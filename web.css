@@ -227,3 +227,18 @@ html, body {
 .kuro-upload-overlay.tc-bgmode .tc-ov-bg{display:block}
 .kuro-upload-overlay.tc-bgmode::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at center,rgba(2,6,4,.05) 0%,rgba(2,6,4,.42) 70%,rgba(2,6,4,.72) 100%)}
 .kuro-upload-overlay .kuro-stage-steps{max-width:min(100%,50rem)}
+
+/* Codec output + estimasi ukuran */
+.tc-codecs{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tc-codecs .tc-opt{min-height:0;padding:12px 10px 10px}
+.tc-codecs .tc-opt em{font-size:.7rem}
+.tc-codecs .tc-badge{align-self:flex-start;margin-top:4px;white-space:nowrap}
+@media(max-width:420px){.tc-codecs .tc-opt b{font-size:.82rem}.tc-codecs .tc-opt em{font-size:.64rem}}
+.tc-estimate{margin:0 0 10px;padding:12px 14px;border-radius:12px;background:linear-gradient(135deg,rgba(167,139,250,.16),rgba(0,0,0,.3));border:1px solid rgba(167,139,250,.35)}
+.tc-est-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:.8rem;color:#cbd5e1}
+.tc-est-top b{font-size:1.45rem;font-weight:800;color:#fff;letter-spacing:.2px}
+.tc-est-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.1);margin:8px 0;overflow:hidden}
+.tc-est-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#a78bfa,#60a5fa);transition:width .25s}
+.tc-est-bar i.over{background:linear-gradient(90deg,#fbbf24,#f87171)}
+.tc-est-sub{font-size:.76rem;line-height:1.5;color:#e2e8f0;word-break:break-word}
+.tc-est-note{font-size:.68rem;color:#94a3b8;margin-top:4px}
